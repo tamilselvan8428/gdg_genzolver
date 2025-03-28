@@ -1,4 +1,5 @@
 import os
+import sys
 import streamlit as st
 import webbrowser
 import requests
@@ -7,15 +8,15 @@ import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 
+# --- ✅ Ensure Windows & macOS Only ---
+if os.name not in ["nt", "posix"]:  # nt = Windows, posix = macOS
+    st.error("❌ This app is only supported on Windows & macOS.")
+    sys.exit()  # Immediately stop execution
+
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
-
-# --- ✅ Ensure Windows & macOS Only ---
-if os.name not in ["nt", "posix"]:  # nt = Windows, posix = macOS
-    st.error("❌ This app is only supported on Windows & macOS.")
-    st.stop()
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -47,7 +48,7 @@ def open_problem(pid):
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
         webbrowser.open(url, new=2)  
-        time.sleep(3)  # Reduced wait time
+        time.sleep(2)  # Reduced wait time
         return url
     st.error("❌ Invalid problem number.")
     return None
@@ -135,4 +136,4 @@ elif user_input:
         res = model.generate_content(user_input)
         st.chat_message("assistant").write(res.text)
     except Exception as e:
-        st.error(f"❌ Gemini Error: {e}")
+        st.error(f"❌ Gemini Error: {e}")  
