@@ -13,12 +13,12 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- ✅ Ensure Windows & macOS Only ---
-if os.name not in ["nt", "posix"]:  # nt = Windows, posix = macOS/Linux
+if os.name not in ["nt", "posix"]:  # nt = Windows, posix = macOS
     st.error("❌ This app is only supported on Windows & macOS.")
     st.stop()
 
 # --- 🌐 Streamlit UI Setup ---
-st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
+st.title("🤖 LeetCode Auto-Solver= & Analytics Chatbot")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 # --- 🗂 Cache LeetCode Problems ---
@@ -47,7 +47,7 @@ def open_problem(pid):
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
         webbrowser.open(url, new=2)  
-        time.sleep(7)
+        time.sleep(5)
         return url
     st.error("❌ Invalid problem number.")
     return None
@@ -100,12 +100,13 @@ def submit_solution(pid, lang, sol):
         st.info("🔍 Opening LeetCode page...")
         open_problem(pid)
         
-        # ✅ Fix: Ensure clipboard works for Windows & macOS only
-        try:
-            pyperclip.copy(sol)
-            st.success("✅ Solution copied to clipboard! Paste manually if needed.")
-        except Exception as e:
-            st.warning(f"⚠ Clipboard copy failed: {e}")
+        # ✅ Fix: Ensure clipboard works properly on Windows & macOS
+        if os.name == "nt" or os.name == "posix":  
+            try:
+                pyperclip.copy(sol)  # No 'xclip' or Linux issues here
+                st.success("✅ Solution copied to clipboard! Paste manually if needed.")
+            except Exception as e:
+                st.warning(f"⚠ Clipboard copy failed: {e}")
 
     except Exception as e:
         st.error(f"❌ Pyperclip Error: {e}")
