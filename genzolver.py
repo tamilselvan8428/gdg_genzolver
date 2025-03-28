@@ -13,10 +13,12 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # Check if running in a GUI environment
-if os.getenv("DISPLAY"):
+try:
     import pyautogui
-else:
-    pyautogui = None  # Prevent import error
+    pyautogui_fail = False
+except ImportError:
+    pyautogui_fail = True
+    pyautogui = None
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -92,73 +94,32 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🔍 Page Verification ---
-def ensure_leetcode_page(pid):
-    """Ensure the correct LeetCode problem page is open."""
-    open_problem(pid)
-
-def focus_on_editor():
-    """Click inside the script editor and paste solution."""
-    if pyautogui is None:
-        print("Skipping automation as no DISPLAY is available.")
-        return
-
-    time.sleep(3)
-    pyautogui.click(x=1500, y=400)  
-    time.sleep(1)
-    pyautogui.hotkey('ctrl', 'a')  
-    pyautogui.hotkey('ctrl', 'v')  
-    time.sleep(1)
-
 # --- 🛠 Submit Solution ---    
 def submit_solution(pid, lang, sol):
     """Automate the process of pasting and submitting solution on LeetCode."""
+    if pyautogui_fail:
+        st.warning("❌ PyAutoGUI is not available in this environment.")
+        return
+    
     try:
         st.info("🔍 Opening LeetCode page (only if needed)...")
-        ensure_leetcode_page(pid)
-
-        # Copy solution to clipboard
+        open_problem(pid)
         pyperclip.copy(sol)
-
-        if pyautogui:
-            st.info("⌨ Clicking on editor and pasting solution...")
-            focus_on_editor()
-
-            # Run the solution
-            pyautogui.hotkey('ctrl', '`')
-            st.info("🚀 Running code...")
-            time.sleep(8)
-
-            if is_run_successful():
-                st.success("✅ Code executed successfully! Now submitting...")
-
-                # Submit the solution
-                pyautogui.hotkey('ctrl', 'enter')
-                st.info("🏆 Submitting solution...")
-                time.sleep(10)
-
-                if is_submission_successful():
-                    st.success(f"✅ Problem {pid} submitted successfully!")
-                else:
-                    st.error("❌ Submission failed. Retrying...")
-                    submit_solution(pid, lang, sol)  # Retry if needed
-            else:
-                st.error("❌ Run failed. Check the solution or retry.")
-        else:
-            st.warning("❌ PyAutoGUI is not available in this environment.")
+        time.sleep(3)
+        pyautogui.click(x=1500, y=400)
+        time.sleep(1)
+        pyautogui.hotkey('ctrl', 'a')  
+        pyautogui.hotkey('ctrl', 'v')  
+        time.sleep(1)
+        pyautogui.hotkey('ctrl', '`')
+        st.info("🚀 Running code...")
+        time.sleep(8)
+        pyautogui.hotkey('ctrl', 'enter')
+        st.info("🏆 Submitting solution...")
+        time.sleep(10)
+        st.success(f"✅ Problem {pid} submitted successfully!")
     except Exception as e:
         st.error(f"❌ PyAutoGUI Error: {e}")
-
-# --- ✅ Verification Helpers ---
-def is_run_successful():
-    """Check if code execution was successful."""
-    time.sleep(5)
-    return True  # Mock function; replace with image detection if needed
-
-def is_submission_successful():
-    """Check if submission was successful."""
-    time.sleep(5)
-    return True  # Mock function; replace with image detection if needed
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
