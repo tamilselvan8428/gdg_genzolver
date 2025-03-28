@@ -14,12 +14,12 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- ✅ Ensure Windows & macOS Only ---
-system_os = platform.system().lower()  # Normalize OS name to lowercase
-if "windows" not in system_os and "darwin" not in system_os:  # Darwin = macOS
+system_os = platform.system().lower()
+if os.name != "nt" and system_os not in ["windows", "darwin"]:  # Darwin = macOS
     st.error("❌ This app is only supported on Windows & macOS.")
     st.stop()
 
-st.success(f"✅ OS Detected: {system_os.capitalize()}")  # Show detected OS
+st.success(f"✅ OS Detected: {platform.system()}")  # Show detected OS
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
