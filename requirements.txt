@@ -1,6 +1,6 @@
 streamlit
 requests
-pyautogui
-pyperclip
-google-generativeai
+selenium
 beautifulsoup4
+google-generativeai
+pyperclip
