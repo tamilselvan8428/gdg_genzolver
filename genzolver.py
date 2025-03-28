@@ -14,17 +14,18 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- ✅ Fix Pyperclip Error (Handle Clipboard Issues) ---
 def configure_pyperclip():
+    """Ensures Pyperclip has a working clipboard mechanism."""
     if os.name == "posix":  # Linux/macOS
         if not os.system("which xclip > /dev/null 2>&1"):
             pyperclip.set_clipboard("xclip")
         elif not os.system("which xsel > /dev/null 2>&1"):
             pyperclip.set_clipboard("xsel")
         else:
-            st.warning("⚠ Clipboard functionality may not work. Install xclip or xsel.")
+            st.warning("⚠ Clipboard may not work. Install xclip or xsel.")
     else:
         pass  # No issues on Windows
 
-configure_pyperclip()  # Call the function to configure pyperclip
+configure_pyperclip()
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -33,6 +34,7 @@ st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 # --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
 def fetch_problems():
+    """Fetches all LeetCode problems and caches them."""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
@@ -46,10 +48,11 @@ def fetch_problems():
 problems_dict = fetch_problems()
 
 def get_slug(pid): 
+    """Gets the problem slug for the given problem ID."""
     return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Open the LeetCode problem in a new tab."""
+    """Opens the LeetCode problem in a new tab without duplication."""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
@@ -61,7 +64,7 @@ def open_problem(pid):
 
 # --- 📝 Fetch Problem Statement ---
 def get_problem_statement(slug):
-    """Fetch the problem statement from LeetCode using GraphQL API."""
+    """Fetches the problem statement using LeetCode's GraphQL API."""
     try:
         query = {
             "query": """
@@ -80,7 +83,7 @@ def get_problem_statement(slug):
 
 # --- 🤖 Gemini AI Solver ---
 def solve_with_gemini(pid, lang, text):
-    """Generate a solution using Gemini AI."""
+    """Generates a solution using Gemini AI."""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
     
@@ -102,12 +105,12 @@ Solution:"""
 
 # --- 🛠 Submit Solution ---
 def submit_solution(pid, lang, sol):
-    """Automate pasting and submitting the solution."""
+    """Copies the solution to clipboard and informs the user."""
     try:
         st.info("🔍 Opening LeetCode page...")
         open_problem(pid)
         
-        # ✅ Fix: Prevent clipboard issues on Linux
+        # ✅ Fix: Prevent clipboard issues
         try:
             pyperclip.copy(sol)
             st.success("✅ Solution copied to clipboard! Paste manually if needed.")
