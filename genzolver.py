@@ -7,21 +7,20 @@ import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 import platform
+import subprocess
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# --- ✅ Ensure Windows & macOS Only ---
+# --- ✅ Ensure Windows, macOS & Kali Linux ---
 system_os = platform.system()
-st.write(f"🔍 Detected OS: {system_os}")  # Debugging: Show detected OS
-
-if system_os not in ["Windows", "Darwin"]:  # Darwin = macOS
-    st.error("❌ This app is only supported on Windows & macOS.")
+if system_os not in ["Windows", "Darwin", "Linux"]:  # ✅ Now supports Linux (Kali)
+    st.error("❌ This app is only supported on Windows, macOS, and Kali Linux.")
     st.stop()
 
-st.success(f"✅ OS Detected: {system_os}")  # Show detected OS confirmation
+st.success(f"✅ OS Detected: {system_os}")  # Show detected OS
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -99,11 +98,15 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Clipboard Copy ---
+# --- 🛠 Clipboard Copy (Fixed for Linux) ---
 def copy_to_clipboard(text):
     """Copies text to clipboard based on the OS."""
     try:
-        pyperclip.copy(text)
+        if system_os == "Linux":
+            process = subprocess.Popen('xclip -selection clipboard', stdin=subprocess.PIPE, shell=True)
+            process.communicate(input=text.encode())
+        else:
+            pyperclip.copy(text)
         return "✅ Solution copied to clipboard!"
     except Exception as e:
         return f"⚠ Clipboard copy failed: {e}"
