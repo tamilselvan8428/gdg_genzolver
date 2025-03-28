@@ -8,16 +8,19 @@ import google.generativeai as genai
 from bs4 import BeautifulSoup
 
 # --- 🔐 Gemini API Setup ---
-API_KEY = st.secrets["GEMINI_API_KEY"]  # Use Streamlit Secrets for API Key
+API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# --- ✅ Prevent Errors in Headless Mode ---
-GUI_AVAILABLE = os.getenv("DISPLAY") is not None
-if GUI_AVAILABLE:
-    import pyautogui  # Import only if GUI is available
-else:
-    pyautogui = None  # Prevents errors in headless environments
+# --- ✅ Fix Pyperclip Issue ---
+if os.name == "posix":  # Linux/macOS
+    try:
+        pyperclip.set_clipboard("xclip")  # Use `xclip`
+    except pyperclip.PyperclipException:
+        try:
+            pyperclip.set_clipboard("xsel")  # Fallback to `xsel`
+        except pyperclip.PyperclipException:
+            st.warning("⚠ Pyperclip is missing a clipboard mechanism. Install xclip or xsel.")
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -52,25 +55,6 @@ def open_problem(pid):
     st.error("❌ Invalid problem number.")
     return None
 
-# --- 📝 Fetch Problem Statement ---
-def get_problem_statement(slug):
-    """Fetch the problem statement from LeetCode using GraphQL API."""
-    try:
-        query = {
-            "query": """
-            query getQuestionDetail($titleSlug: String!) {
-              question(titleSlug: $titleSlug) { content title }
-            }""",
-            "variables": {"titleSlug": slug}
-        }
-        res = requests.post("https://leetcode.com/graphql", json=query)
-        if res.status_code == 200:
-            html = res.json()["data"]["question"]["content"]
-            return BeautifulSoup(html, "html.parser").get_text()
-    except Exception as e:
-        return f"❌ GraphQL error: {e}"
-    return "❌ Failed to fetch problem."
-
 # --- 🤖 Gemini AI Solver ---
 def solve_with_gemini(pid, lang, text):
     """Generate a solution using Gemini AI."""
@@ -93,66 +77,16 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🔍 Page Verification ---
-def ensure_leetcode_page(pid):
-    """Ensure the correct LeetCode problem page is open."""
-    open_problem(pid)
-
-def focus_on_editor():
-    """Click inside the script editor and paste solution."""
-    if pyautogui is None:
-        st.warning("Skipping automation as no GUI is available.")
-        return
-
-    time.sleep(3)
-    pyautogui.click(x=1500, y=400)  
-    time.sleep(1)
-    pyautogui.hotkey('ctrl', 'a')  
-    pyautogui.hotkey('ctrl', 'v')  
-    time.sleep(1)
-
 # --- 🛠 Submit Solution ---    
 def submit_solution(pid, lang, sol):
     """Automate pasting and submitting the solution."""
     try:
         st.info("🔍 Opening LeetCode page...")
-        ensure_leetcode_page(pid)
-        pyperclip.copy(sol)
-
-        if pyautogui:
-            st.info("⌨ Clicking on editor and pasting solution...")
-            focus_on_editor()
-
-            pyautogui.hotkey('ctrl', '`')
-            st.info("🚀 Running code...")
-            time.sleep(8)
-
-            if is_run_successful():
-                st.success("✅ Code executed successfully! Now submitting...")
-                pyautogui.hotkey('ctrl', 'enter')
-                st.info("🏆 Submitting solution...")
-                time.sleep(10)
-
-                if is_submission_successful():
-                    st.success(f"✅ Problem {pid} submitted successfully!")
-                else:
-                    st.error("❌ Submission failed. Retrying...")
-                    submit_solution(pid, lang, sol)
-            else:
-                st.error("❌ Run failed. Check the solution or retry.")
-        else:
-            st.warning("❌ PyAutoGUI is not available in this environment.")
+        open_problem(pid)
+        pyperclip.copy(sol)  # ✅ Uses internal method now, avoiding errors
+        st.success("✅ Solution copied to clipboard! Paste manually if needed.")
     except Exception as e:
-        st.error(f"❌ PyAutoGUI Error: {e}")
-
-# --- ✅ Verification Helpers ---
-def is_run_successful():
-    time.sleep(5)
-    return True
-
-def is_submission_successful():
-    time.sleep(5)
-    return True
+        st.error(f"❌ Pyperclip Error: {e}")
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
@@ -164,7 +98,7 @@ if user_input.lower().startswith("solve leetcode"):
         slug = get_slug(pid)
         if slug:
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
-            if st.button("Generate & Submit Solution"):
+            if st.button("Generate & Copy Solution"):
                 open_problem(pid)
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
