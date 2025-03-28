@@ -1,0 +1,6 @@
+streamlit
+requests
+pyautogui
+pyperclip
+google-generativeai
+beautifulsoup4
