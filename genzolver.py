@@ -8,10 +8,10 @@ import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 
-# --- ✅ Ensure Windows & macOS Only ---
-if os.name not in ["nt", "posix"]:  # nt = Windows, posix = macOS
+# --- ✅ Strict OS Check (Blocks Linux) ---
+if os.name == "posix" and "darwin" not in sys.platform:  # darwin = macOS
     st.error("❌ This app is only supported on Windows & macOS.")
-    sys.exit()  # Immediately stop execution
+    sys.exit()  # Immediately stop execution for Linux users
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -94,12 +94,15 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Clipboard Copy ---
+# --- 🛠 Clipboard Copy (Windows & macOS Only) ---
 def copy_to_clipboard(text):
-    """Copies text to clipboard based on the OS (Windows/macOS)."""
+    """Copies text to clipboard ONLY for Windows & macOS."""
     try:
-        pyperclip.copy(text)
-        return "✅ Solution copied to clipboard!"
+        if os.name == "nt" or "darwin" in sys.platform:  # Windows & macOS only
+            pyperclip.copy(text)
+            return "✅ Solution copied to clipboard!"
+        else:
+            return "⚠ Clipboard not supported on this OS."
     except Exception as e:
         return f"⚠ Clipboard copy failed: {e}"
 
