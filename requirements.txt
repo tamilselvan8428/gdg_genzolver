@@ -1,7 +1,8 @@
 streamlit
 requests
-beautifulsoup4
-selenium
+webbrowser
+time
 pyautogui
 pyperclip
 google-generativeai
+beautifulsoup4
