@@ -14,10 +14,13 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- ✅ Ensure Windows & macOS Only ---
-system_os = platform.system().lower()
-if os.name != "nt" and system_os not in ["windows", "darwin"]:  # Darwin = macOS
+# --- ✅ Ensure Windows & macOS Only ---
+system_os = platform.system()
+if system_os not in ["Windows", "Darwin"]:  # Darwin = macOS
     st.error("❌ This app is only supported on Windows & macOS.")
     st.stop()
+st.success(f"✅ OS Detected: {system_os}")
+
 
 st.success(f"✅ OS Detected: {platform.system()}")  # Show detected OS
 
