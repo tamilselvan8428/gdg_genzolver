@@ -55,6 +55,25 @@ def open_problem(pid):
     st.error("❌ Invalid problem number.")
     return None
 
+# --- 📝 Fetch Problem Statement (✅ FIXED) ---
+def get_problem_statement(slug):
+    """Fetch the problem statement from LeetCode using GraphQL API."""
+    try:
+        query = {
+            "query": """
+            query getQuestionDetail($titleSlug: String!) {
+              question(titleSlug: $titleSlug) { content title }
+            }""",
+            "variables": {"titleSlug": slug}
+        }
+        res = requests.post("https://leetcode.com/graphql", json=query)
+        if res.status_code == 200:
+            html = res.json()["data"]["question"]["content"]
+            return BeautifulSoup(html, "html.parser").get_text()
+    except Exception as e:
+        return f"❌ GraphQL error: {e}"
+    return "❌ Failed to fetch problem."
+
 # --- 🤖 Gemini AI Solver ---
 def solve_with_gemini(pid, lang, text):
     """Generate a solution using Gemini AI."""
@@ -100,7 +119,7 @@ if user_input.lower().startswith("solve leetcode"):
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
             if st.button("Generate & Copy Solution"):
                 open_problem(pid)
-                text = get_problem_statement(slug)
+                text = get_problem_statement(slug)  # ✅ FIXED (Previously missing)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
                 submit_solution(pid, lang, solution)
