@@ -6,11 +6,19 @@ import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
-
+import os
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
+
+
+# Check if running in a GUI environment
+if os.getenv("DISPLAY"):
+    import pyautogui
+else:
+    pyautogui = None  # Prevent import error
+
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -96,14 +104,13 @@ def ensure_leetcode_page(pid):
 
 def focus_on_editor():
     """Click inside the script editor and paste solution."""
+    if pyautogui is None:
+        print("Skipping automation as no DISPLAY is available.")
+        return
+
     time.sleep(3)
-
-    # Move mouse to LeetCode editor's area and click (adjust coordinates)
-    pyautogui.click(x=1500, y=400)  # Adjust based on screen resolution
-    
+    pyautogui.click(x=1500, y=400)  
     time.sleep(1)
-
-    # Select all and paste new solution
     pyautogui.hotkey('ctrl', 'a')  
     pyautogui.hotkey('ctrl', 'v')  
     time.sleep(1)
