@@ -1,5 +1,4 @@
 import os
-import sys
 import streamlit as st
 import webbrowser
 import requests
@@ -7,16 +6,18 @@ import time
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
-
-# --- ✅ Strict OS Check (Blocks Linux) ---
-if os.name == "posix" and "darwin" not in sys.platform:  # darwin = macOS
-    st.error("❌ This app is only supported on Windows & macOS.")
-    sys.exit()  # Immediately stop execution for Linux users
+import platform
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
+
+# --- ✅ Ensure Windows & macOS Only ---
+system_os = platform.system()  # Detect OS correctly
+if system_os not in ["Windows", "Darwin"]:  # Darwin = macOS
+    st.error("❌ This app is only supported on Windows & macOS.")
+    st.stop()
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -48,7 +49,7 @@ def open_problem(pid):
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
         webbrowser.open(url, new=2)  
-        time.sleep(2)  # Reduced wait time
+        time.sleep(2)  # Optimized wait time
         return url
     st.error("❌ Invalid problem number.")
     return None
@@ -94,15 +95,12 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Clipboard Copy (Windows & macOS Only) ---
+# --- 🛠 Clipboard Copy ---
 def copy_to_clipboard(text):
-    """Copies text to clipboard ONLY for Windows & macOS."""
+    """Copies text to clipboard based on the OS."""
     try:
-        if os.name == "nt" or "darwin" in sys.platform:  # Windows & macOS only
-            pyperclip.copy(text)
-            return "✅ Solution copied to clipboard!"
-        else:
-            return "⚠ Clipboard not supported on this OS."
+        pyperclip.copy(text)
+        return "✅ Solution copied to clipboard!"
     except Exception as e:
         return f"⚠ Clipboard copy failed: {e}"
 
