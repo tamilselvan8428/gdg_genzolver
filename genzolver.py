@@ -12,18 +12,13 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# --- ✅ Fix Pyperclip Error (Handle Clipboard Issues) ---
+# --- ✅ Fix Clipboard Issues for Windows & macOS ---
 def configure_pyperclip():
-    """Ensures Pyperclip has a working clipboard mechanism."""
-    if os.name == "posix":  # Linux/macOS
-        if not os.system("which xclip > /dev/null 2>&1"):
-            pyperclip.set_clipboard("xclip")
-        elif not os.system("which xsel > /dev/null 2>&1"):
-            pyperclip.set_clipboard("xsel")
-        else:
-            st.warning("⚠ Clipboard may not work. Install xclip or xsel.")
+    """Ensures Pyperclip has a working clipboard mechanism (Windows/macOS only)."""
+    if os.name == "posix" or os.name == "nt":  # macOS or Windows
+        pass  # No clipboard issues
     else:
-        pass  # No issues on Windows
+        st.error("❌ This program only supports Windows & macOS.")
 
 configure_pyperclip()
 
@@ -52,7 +47,7 @@ def get_slug(pid):
     return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Opens the LeetCode problem in a new tab without duplication."""
+    """Opens the LeetCode problem in a new tab."""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
