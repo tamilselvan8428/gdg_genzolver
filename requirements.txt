@@ -5,3 +5,5 @@ google-generativeai
 pyautogui
 pyperclip
 pyvirtualdisplay
+selenium
+webdriver-manager
