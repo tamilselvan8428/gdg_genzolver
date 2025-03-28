@@ -6,3 +6,5 @@ pyautogui
 pyperclip
 google-generativeai
 beautifulsoup4
+selenium
+webdriver-manager
