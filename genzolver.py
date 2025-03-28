@@ -18,7 +18,7 @@ if os.name not in ["nt", "posix"]:  # nt = Windows, posix = macOS
     st.stop()
 
 # --- 🌐 Streamlit UI Setup ---
-st.title("🤖 LeetCode Auto-Solver= & Analytics Chatbot")
+st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 # --- 🗂 Cache LeetCode Problems ---
@@ -39,7 +39,7 @@ problems_dict = fetch_problems()
 
 def get_slug(pid): 
     """Gets the problem slug for the given problem ID."""
-    return problems_dict.get(pid)
+    return problems_dict.get(pid, None)
 
 def open_problem(pid):
     """Opens the LeetCode problem in a new tab."""
@@ -47,7 +47,7 @@ def open_problem(pid):
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
         webbrowser.open(url, new=2)  
-        time.sleep(5)
+        time.sleep(3)  # Reduced wait time
         return url
     st.error("❌ Invalid problem number.")
     return None
@@ -64,7 +64,7 @@ def get_problem_statement(slug):
             "variables": {"titleSlug": slug}
         }
         res = requests.post("https://leetcode.com/graphql", json=query)
-        if res.status_code == 200:
+        if res.status_code == 200 and res.json().get("data"):
             html = res.json()["data"]["question"]["content"]
             return BeautifulSoup(html, "html.parser").get_text()
     except Exception as e:
@@ -89,27 +89,26 @@ Solution:"""
     
     try:
         res = model.generate_content(prompt)
-        return res.text.strip()
+        return res.text.strip() if res.text else "❌ No solution generated."
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
+# --- 🛠 Clipboard Copy ---
+def copy_to_clipboard(text):
+    """Copies text to clipboard based on the OS."""
+    try:
+        pyperclip.copy(text)
+        return "✅ Solution copied to clipboard!"
+    except Exception as e:
+        return f"⚠ Clipboard copy failed: {e}"
+
 # --- 🛠 Submit Solution ---
 def submit_solution(pid, lang, sol):
-    """Copies the solution to clipboard and informs the user."""
-    try:
-        st.info("🔍 Opening LeetCode page...")
-        open_problem(pid)
-        
-        # ✅ Fix: Ensure clipboard works properly on Windows & macOS
-        if os.name == "nt" or os.name == "posix":  
-            try:
-                pyperclip.copy(sol)  # No 'xclip' or Linux issues here
-                st.success("✅ Solution copied to clipboard! Paste manually if needed.")
-            except Exception as e:
-                st.warning(f"⚠ Clipboard copy failed: {e}")
-
-    except Exception as e:
-        st.error(f"❌ Pyperclip Error: {e}")
+    """Opens LeetCode problem and copies the solution."""
+    st.info("🔍 Opening LeetCode page...")
+    open_problem(pid)
+    copy_result = copy_to_clipboard(sol)
+    st.success(copy_result)
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
