@@ -1,11 +1,27 @@
 import streamlit as st
-import webbrowser
 import requests
 import time
 import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+from pyvirtualdisplay import Display
+
+# --- 🎥 Start Virtual Display (For Headless Execution) ---
+display = Display(visible=0, size=(1920, 1080))
+display.start()
+
+# --- 🌐 Setup Selenium WebDriver ---
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"
@@ -35,14 +51,11 @@ def get_slug(pid):
     return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Open the LeetCode problem only if it's not already open."""
+    """Open the LeetCode problem in the browser."""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
-
-        # Use `webbrowser.open_new_tab` only if this problem isn't open yet
-        if "leetcode.com/problems" not in webbrowser.get().name:
-            webbrowser.open(url, new=2)  # Open in a new tab only once
+        driver.get(url)
         time.sleep(7)
         return url
     st.error("❌ Invalid problem number.")
