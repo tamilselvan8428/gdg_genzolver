@@ -96,7 +96,7 @@ Solution:"""
 
 # --- 🛠 Clipboard Copy ---
 def copy_to_clipboard(text):
-    """Copies text to clipboard based on the OS."""
+    """Copies text to clipboard based on the OS (Windows/macOS)."""
     try:
         pyperclip.copy(text)
         return "✅ Solution copied to clipboard!"
