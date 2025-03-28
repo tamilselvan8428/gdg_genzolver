@@ -2,23 +2,21 @@ import streamlit as st
 import webbrowser
 import requests
 import time
-import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 import os
+
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
-
 
 # Check if running in a GUI environment
 if os.getenv("DISPLAY"):
     import pyautogui
 else:
     pyautogui = None  # Prevent import error
-
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -47,10 +45,7 @@ def open_problem(pid):
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
-
-        # Use `webbrowser.open_new_tab` only if this problem isn't open yet
-        if "leetcode.com/problems" not in webbrowser.get().name:
-            webbrowser.open(url, new=2)  # Open in a new tab only once
+        webbrowser.open(url, new=2)  # Open in a new tab only once
         time.sleep(7)
         return url
     st.error("❌ Invalid problem number.")
@@ -125,29 +120,32 @@ def submit_solution(pid, lang, sol):
         # Copy solution to clipboard
         pyperclip.copy(sol)
 
-        st.info("⌨ Clicking on editor and pasting solution...")
-        focus_on_editor()
+        if pyautogui:
+            st.info("⌨ Clicking on editor and pasting solution...")
+            focus_on_editor()
 
-        # Run the solution
-        pyautogui.hotkey('ctrl', '`')
-        st.info("🚀 Running code...")
-        time.sleep(8)
+            # Run the solution
+            pyautogui.hotkey('ctrl', '`')
+            st.info("🚀 Running code...")
+            time.sleep(8)
 
-        if is_run_successful():
-            st.success("✅ Code executed successfully! Now submitting...")
+            if is_run_successful():
+                st.success("✅ Code executed successfully! Now submitting...")
 
-            # Submit the solution
-            pyautogui.hotkey('ctrl', 'enter')
-            st.info("🏆 Submitting solution...")
-            time.sleep(10)
+                # Submit the solution
+                pyautogui.hotkey('ctrl', 'enter')
+                st.info("🏆 Submitting solution...")
+                time.sleep(10)
 
-            if is_submission_successful():
-                st.success(f"✅ Problem {pid} submitted successfully!")
+                if is_submission_successful():
+                    st.success(f"✅ Problem {pid} submitted successfully!")
+                else:
+                    st.error("❌ Submission failed. Retrying...")
+                    submit_solution(pid, lang, sol)  # Retry if needed
             else:
-                st.error("❌ Submission failed. Retrying...")
-                submit_solution(pid, lang, sol)  # Retry if needed
+                st.error("❌ Run failed. Check the solution or retry.")
         else:
-            st.error("❌ Run failed. Check the solution or retry.")
+            st.warning("❌ PyAutoGUI is not available in this environment.")
     except Exception as e:
         st.error(f"❌ PyAutoGUI Error: {e}")
 
