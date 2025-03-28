@@ -12,15 +12,19 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# --- ✅ Fix Pyperclip Issue ---
-if os.name == "posix":  # Linux/macOS
-    try:
-        pyperclip.set_clipboard("xclip")  # Use `xclip`
-    except pyperclip.PyperclipException:
-        try:
-            pyperclip.set_clipboard("xsel")  # Fallback to `xsel`
-        except pyperclip.PyperclipException:
-            st.warning("⚠ Pyperclip is missing a clipboard mechanism. Install xclip or xsel.")
+# --- ✅ Fix Pyperclip Error (Handle Clipboard Issues) ---
+def configure_pyperclip():
+    if os.name == "posix":  # Linux/macOS
+        if not os.system("which xclip > /dev/null 2>&1"):
+            pyperclip.set_clipboard("xclip")
+        elif not os.system("which xsel > /dev/null 2>&1"):
+            pyperclip.set_clipboard("xsel")
+        else:
+            st.warning("⚠ Clipboard functionality may not work. Install xclip or xsel.")
+    else:
+        pass  # No issues on Windows
+
+configure_pyperclip()  # Call the function to configure pyperclip
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -55,7 +59,7 @@ def open_problem(pid):
     st.error("❌ Invalid problem number.")
     return None
 
-# --- 📝 Fetch Problem Statement (✅ FIXED) ---
+# --- 📝 Fetch Problem Statement ---
 def get_problem_statement(slug):
     """Fetch the problem statement from LeetCode using GraphQL API."""
     try:
@@ -96,14 +100,20 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Submit Solution ---    
+# --- 🛠 Submit Solution ---
 def submit_solution(pid, lang, sol):
     """Automate pasting and submitting the solution."""
     try:
         st.info("🔍 Opening LeetCode page...")
         open_problem(pid)
-        pyperclip.copy(sol)  # ✅ Uses internal method now, avoiding errors
-        st.success("✅ Solution copied to clipboard! Paste manually if needed.")
+        
+        # ✅ Fix: Prevent clipboard issues on Linux
+        try:
+            pyperclip.copy(sol)
+            st.success("✅ Solution copied to clipboard! Paste manually if needed.")
+        except pyperclip.PyperclipException:
+            st.warning("⚠ Clipboard function failed. Please manually copy the solution.")
+
     except Exception as e:
         st.error(f"❌ Pyperclip Error: {e}")
 
@@ -119,7 +129,7 @@ if user_input.lower().startswith("solve leetcode"):
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
             if st.button("Generate & Copy Solution"):
                 open_problem(pid)
-                text = get_problem_statement(slug)  # ✅ FIXED (Previously missing)
+                text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
                 submit_solution(pid, lang, solution)
