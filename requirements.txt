@@ -3,5 +3,5 @@ requests
 google-generativeai
 beautifulsoup4
 selenium
-msedge-selenium-tools
+undetected-chromedriver
 pyperclip
