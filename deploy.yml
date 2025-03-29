@@ -1,0 +1,30 @@
+name: Deploy Streamlit App
+
+on:
+  push:
+    branches:
+      - main  # Deploy when pushing to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚀 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🛠 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: 🌐 Run Streamlit App
+        run: |
+          streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+       - name: 🚀 Deploy to Render
+         run: |
+           curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
