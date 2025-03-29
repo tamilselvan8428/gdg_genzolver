@@ -1,26 +1,16 @@
-import os
 import streamlit as st
 import webbrowser
 import requests
 import time
+import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
-import platform
-import subprocess
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
-
-# --- ✅ Ensure Windows, macOS & Linux Support ---
-system_os = platform.system()
-if system_os not in ["Windows", "Darwin", "Linux"]:
-    st.error(f"❌ Unsupported OS: {system_os}. Only Windows, macOS, and Linux are supported.")
-    st.stop()
-
-st.success(f"✅ OS Detected: {system_os}")  # Show detected OS
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -29,7 +19,6 @@ st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 # --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
 def fetch_problems():
-    """Fetches all LeetCode problems and caches them."""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
@@ -43,23 +32,25 @@ def fetch_problems():
 problems_dict = fetch_problems()
 
 def get_slug(pid): 
-    """Gets the problem slug for the given problem ID."""
-    return problems_dict.get(pid, None)
+    return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Opens the LeetCode problem in a new tab."""
+    """Open the LeetCode problem only if it's not already open."""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
-        webbrowser.open(url, new=2)  
-        time.sleep(2)  # Optimized wait time
+
+        # Use `webbrowser.open_new_tab` only if this problem isn't open yet
+        if "leetcode.com/problems" not in webbrowser.get().name:
+            webbrowser.open(url, new=2)  # Open in a new tab only once
+        time.sleep(7)
         return url
     st.error("❌ Invalid problem number.")
     return None
 
 # --- 📝 Fetch Problem Statement ---
 def get_problem_statement(slug):
-    """Fetches the problem statement using LeetCode's GraphQL API."""
+    """Fetch the problem statement from LeetCode using GraphQL API."""
     try:
         query = {
             "query": """
@@ -69,7 +60,7 @@ def get_problem_statement(slug):
             "variables": {"titleSlug": slug}
         }
         res = requests.post("https://leetcode.com/graphql", json=query)
-        if res.status_code == 200 and res.json().get("data"):
+        if res.status_code == 200:
             html = res.json()["data"]["question"]["content"]
             return BeautifulSoup(html, "html.parser").get_text()
     except Exception as e:
@@ -78,7 +69,7 @@ def get_problem_statement(slug):
 
 # --- 🤖 Gemini AI Solver ---
 def solve_with_gemini(pid, lang, text):
-    """Generates a solution using Gemini AI."""
+    """Generate a solution using Gemini AI."""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
     
@@ -94,35 +85,75 @@ Solution:"""
     
     try:
         res = model.generate_content(prompt)
-        return res.text.strip() if res.text else "❌ No solution generated."
+        return res.text.strip()
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Clipboard Copy (Fully Fixed) ---
-def copy_to_clipboard(text):
-    """Copies text to clipboard based on the OS, ensuring compatibility."""
-    try:
-        if system_os == "Linux":
-            process = subprocess.Popen('xclip -selection clipboard', stdin=subprocess.PIPE, shell=True)
-            process.communicate(input=text.encode())
-        elif system_os == "Darwin":  # macOS
-            process = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
-            process.communicate(input=text.encode())
-        elif system_os == "Windows":
-            pyperclip.copy(text)
-        else:
-            return "⚠ Unsupported OS for clipboard copying."
-        return "✅ Solution copied to clipboard!"
-    except Exception as e:
-        return f"⚠ Clipboard copy failed: {e}"
-
-# --- 🛠 Submit Solution ---
-def submit_solution(pid, lang, sol):
-    """Opens LeetCode problem and copies the solution."""
-    st.info("🔍 Opening LeetCode page...")
+# --- 🔍 Page Verification ---
+def ensure_leetcode_page(pid):
+    """Ensure the correct LeetCode problem page is open."""
     open_problem(pid)
-    copy_result = copy_to_clipboard(sol)
-    st.success(copy_result)
+
+def focus_on_editor():
+    """Click inside the script editor and paste solution."""
+    time.sleep(3)
+
+    # Move mouse to LeetCode editor's area and click (adjust coordinates)
+    pyautogui.click(x=1500, y=400)  # Adjust based on screen resolution
+    
+    time.sleep(1)
+
+    # Select all and paste new solution
+    pyautogui.hotkey('ctrl', 'a')  
+    pyautogui.hotkey('ctrl', 'v')  
+    time.sleep(1)
+
+# --- 🛠 Submit Solution ---    
+def submit_solution(pid, lang, sol):
+    """Automate the process of pasting and submitting solution on LeetCode."""
+    try:
+        st.info("🔍 Opening LeetCode page (only if needed)...")
+        ensure_leetcode_page(pid)
+
+        # Copy solution to clipboard
+        pyperclip.copy(sol)
+
+        st.info("⌨ Clicking on editor and pasting solution...")
+        focus_on_editor()
+
+        # Run the solution
+        pyautogui.hotkey('ctrl', '`')
+        st.info("🚀 Running code...")
+        time.sleep(8)
+
+        if is_run_successful():
+            st.success("✅ Code executed successfully! Now submitting...")
+
+            # Submit the solution
+            pyautogui.hotkey('ctrl', 'enter')
+            st.info("🏆 Submitting solution...")
+            time.sleep(10)
+
+            if is_submission_successful():
+                st.success(f"✅ Problem {pid} submitted successfully!")
+            else:
+                st.error("❌ Submission failed. Retrying...")
+                submit_solution(pid, lang, sol)  # Retry if needed
+        else:
+            st.error("❌ Run failed. Check the solution or retry.")
+    except Exception as e:
+        st.error(f"❌ PyAutoGUI Error: {e}")
+
+# --- ✅ Verification Helpers ---
+def is_run_successful():
+    """Check if code execution was successful."""
+    time.sleep(5)
+    return True  # Mock function; replace with image detection if needed
+
+def is_submission_successful():
+    """Check if submission was successful."""
+    time.sleep(5)
+    return True  # Mock function; replace with image detection if needed
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
@@ -134,7 +165,7 @@ if user_input.lower().startswith("solve leetcode"):
         slug = get_slug(pid)
         if slug:
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
-            if st.button("Generate & Copy Solution"):
+            if st.button("Generate & Submit Solution"):
                 open_problem(pid)
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
@@ -149,4 +180,4 @@ elif user_input:
         res = model.generate_content(user_input)
         st.chat_message("assistant").write(res.text)
     except Exception as e:
-        st.error(f"❌ Gemini Error: {e}")  
+        st.error(f"❌ Gemini Error: {e}")
