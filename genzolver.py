@@ -16,8 +16,8 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- ✅ Ensure Windows, macOS & Kali Linux ---
 system_os = platform.system()
-if system_os not in ["Windows", "Darwin", "Linux"]:  # ✅ Now supports Linux (Kali)
-    st.error("❌ This app is only supported on Windows, macOS, and Kali Linux.")
+if system_os not in ["Windows", "Darwin", "Linux"]:
+    st.error(f"❌ Unsupported OS: {system_os}. Only Windows, macOS, and Kali Linux are supported.")
     st.stop()
 
 st.success(f"✅ OS Detected: {system_os}")  # Show detected OS
@@ -105,11 +105,15 @@ def copy_to_clipboard(text):
         if system_os == "Linux":
             process = subprocess.Popen('xclip -selection clipboard', stdin=subprocess.PIPE, shell=True)
             process.communicate(input=text.encode())
-        else:
+        elif system_os == "Darwin":  # macOS
+            process = subprocess.Popen('pbcopy', stdin=subprocess.PIPE)
+            process.communicate(input=text.encode())
+        else:  # Windows
             pyperclip.copy(text)
         return "✅ Solution copied to clipboard!"
     except Exception as e:
         return f"⚠ Clipboard copy failed: {e}"
+
 
 # --- 🛠 Submit Solution ---
 def submit_solution(pid, lang, sol):
