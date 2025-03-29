@@ -1,14 +1,21 @@
 import streamlit as st
-import webbrowser
 import requests
 import time
-import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.edge.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import os
 
 # --- 🔐 Gemini API Setup ---
-API_KEY = st.secrets["GEMINI_API_KEY"]
+API_KEY = os.getenv("GEMINI_API_KEY")  # Use environment variable
+if not API_KEY:
+    st.error("❌ Missing GEMINI_API_KEY. Set it in Render's environment variables.")
+    st.stop()
+
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
@@ -34,23 +41,8 @@ problems_dict = fetch_problems()
 def get_slug(pid): 
     return problems_dict.get(pid)
 
-def open_problem(pid):
-    """Open the LeetCode problem only if it's not already open."""
-    slug = get_slug(pid)
-    if slug:
-        url = f"https://leetcode.com/problems/{slug}/"
-
-        # Use `webbrowser.open_new_tab` only if this problem isn't open yet
-        if "leetcode.com/problems" not in webbrowser.get().name:
-            webbrowser.open(url, new=2)  # Open in a new tab only once
-        time.sleep(7)
-        return url
-    st.error("❌ Invalid problem number.")
-    return None
-
 # --- 📝 Fetch Problem Statement ---
 def get_problem_statement(slug):
-    """Fetch the problem statement from LeetCode using GraphQL API."""
     try:
         query = {
             "query": """
@@ -69,7 +61,6 @@ def get_problem_statement(slug):
 
 # --- 🤖 Gemini AI Solver ---
 def solve_with_gemini(pid, lang, text):
-    """Generate a solution using Gemini AI."""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
     
@@ -89,71 +80,53 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🔍 Page Verification ---
-def ensure_leetcode_page(pid):
-    """Ensure the correct LeetCode problem page is open."""
-    open_problem(pid)
-
-def focus_on_editor():
-    """Click inside the script editor and paste solution."""
-    time.sleep(3)
-
-    # Move mouse to LeetCode editor's area and click (adjust coordinates)
-    pyautogui.click(x=1500, y=400)  # Adjust based on screen resolution
+# --- 🔍 Selenium Automation ---
+def open_problem_and_paste_solution(pid, solution):
+    """Uses Selenium to open LeetCode and paste the solution."""
+    slug = get_slug(pid)
+    if not slug:
+        st.error("❌ Invalid problem number.")
+        return
     
-    time.sleep(1)
+    url = f"https://leetcode.com/problems/{slug}/"
+    
+    # Set up Selenium WebDriver
+    options = webdriver.EdgeOptions()
+    options.add_argument("--headless")  # Run in headless mode on Render
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
 
-    # Select all and paste new solution
-    pyautogui.hotkey('ctrl', 'a')  
-    pyautogui.hotkey('ctrl', 'v')  
-    time.sleep(1)
-
-# --- 🛠 Submit Solution ---    
-def submit_solution(pid, lang, sol):
-    """Automate the process of pasting and submitting solution on LeetCode."""
+    service = Service("/usr/bin/msedgedriver")  # Path to Edge WebDriver
+    driver = webdriver.Edge(service=service, options=options)
+    
     try:
-        st.info("🔍 Opening LeetCode page (only if needed)...")
-        ensure_leetcode_page(pid)
+        st.info("🔍 Opening LeetCode page...")
+        driver.get(url)
+        time.sleep(5)
 
-        # Copy solution to clipboard
-        pyperclip.copy(sol)
+        # Paste the solution
+        pyperclip.copy(solution)
+        editor = driver.find_element(By.CLASS_NAME, "CodeMirror")
+        editor.click()
+        time.sleep(1)
+        editor.send_keys(Keys.CONTROL, 'v')  # Paste solution
 
-        st.info("⌨ Clicking on editor and pasting solution...")
-        focus_on_editor()
+        # Click 'Run' button
+        run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
+        run_button.click()
+        st.info("🚀 Running solution...")
+        time.sleep(10)
 
-        # Run the solution
-        pyautogui.hotkey('ctrl', '`')
-        st.info("🚀 Running code...")
-        time.sleep(8)
+        # Click 'Submit' button
+        submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+        submit_button.click()
+        st.success(f"✅ Problem {pid} submitted successfully!")
 
-        if is_run_successful():
-            st.success("✅ Code executed successfully! Now submitting...")
-
-            # Submit the solution
-            pyautogui.hotkey('ctrl', 'enter')
-            st.info("🏆 Submitting solution...")
-            time.sleep(10)
-
-            if is_submission_successful():
-                st.success(f"✅ Problem {pid} submitted successfully!")
-            else:
-                st.error("❌ Submission failed. Retrying...")
-                submit_solution(pid, lang, sol)  # Retry if needed
-        else:
-            st.error("❌ Run failed. Check the solution or retry.")
     except Exception as e:
-        st.error(f"❌ PyAutoGUI Error: {e}")
-
-# --- ✅ Verification Helpers ---
-def is_run_successful():
-    """Check if code execution was successful."""
-    time.sleep(5)
-    return True  # Mock function; replace with image detection if needed
-
-def is_submission_successful():
-    """Check if submission was successful."""
-    time.sleep(5)
-    return True  # Mock function; replace with image detection if needed
+        st.error(f"❌ Selenium Error: {e}")
+    
+    finally:
+        driver.quit()
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
@@ -166,11 +139,10 @@ if user_input.lower().startswith("solve leetcode"):
         if slug:
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
             if st.button("Generate & Submit Solution"):
-                open_problem(pid)
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
-                submit_solution(pid, lang, solution)
+                open_problem_and_paste_solution(pid, solution)
         else:
             st.error("❌ Invalid problem number.")
     else:
