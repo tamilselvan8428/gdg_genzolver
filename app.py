@@ -1,14 +1,32 @@
 import streamlit as st
 import requests
 import time
-import pyperclip
+import os
+import subprocess
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.edge.service import Service
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import os
+
+# --- Install Chrome & ChromeDriver on Render ---
+def install_chrome():
+    if not os.path.exists("/usr/bin/google-chrome"):
+        print("🔽 Installing Google Chrome...")
+        subprocess.run("wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb", shell=True)
+        subprocess.run("dpkg -i google-chrome-stable_current_amd64.deb || apt-get -f install -y", shell=True)
+
+def install_chromedriver():
+    if not os.path.exists("/usr/bin/chromedriver"):
+        print("🔽 Installing ChromeDriver...")
+        subprocess.run("wget https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip", shell=True)
+        subprocess.run("unzip chromedriver_linux64.zip", shell=True)
+        subprocess.run("mv chromedriver /usr/bin/chromedriver", shell=True)
+        subprocess.run("chmod +x /usr/bin/chromedriver", shell=True)
+
+install_chrome()
+install_chromedriver()
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = os.getenv("GEMINI_API_KEY")  # Use environment variable
@@ -80,9 +98,8 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🔍 Selenium Automation ---
+# --- 🔍 Selenium Automation (Modified for Render) ---
 def open_problem_and_paste_solution(pid, solution):
-    """Uses Selenium to open LeetCode and paste the solution."""
     slug = get_slug(pid)
     if not slug:
         st.error("❌ Invalid problem number.")
@@ -90,34 +107,32 @@ def open_problem_and_paste_solution(pid, solution):
     
     url = f"https://leetcode.com/problems/{slug}/"
     
-    # Set up Selenium WebDriver
-    options = webdriver.EdgeOptions()
+    options = webdriver.ChromeOptions()
     options.add_argument("--headless")  # Run in headless mode on Render
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
-
-    service = Service("/usr/bin/msedgedriver")  # Path to Edge WebDriver
-    driver = webdriver.Edge(service=service, options=options)
+    options.add_argument("--disable-dev-shm-usage")
+    
+    service = Service("/usr/bin/chromedriver")  # Use Chrome WebDriver
+    driver = webdriver.Chrome(service=service, options=options)
     
     try:
         st.info("🔍 Opening LeetCode page...")
         driver.get(url)
         time.sleep(5)
 
-        # Paste the solution
-        pyperclip.copy(solution)
         editor = driver.find_element(By.CLASS_NAME, "CodeMirror")
         editor.click()
         time.sleep(1)
-        editor.send_keys(Keys.CONTROL, 'v')  # Paste solution
+        editor.send_keys(Keys.CONTROL, 'a')  # Select all
+        editor.send_keys(Keys.DELETE)  # Clear editor
+        editor.send_keys(solution)  # Type solution
 
-        # Click 'Run' button
         run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
         run_button.click()
         st.info("🚀 Running solution...")
         time.sleep(10)
 
-        # Click 'Submit' button
         submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
         submit_button.click()
         st.success(f"✅ Problem {pid} submitted successfully!")
