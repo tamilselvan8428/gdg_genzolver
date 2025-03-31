@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: leetcode-solver
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "streamlit run app.py"
+  - type: worker
+    name: selenium-worker
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python selenium_script.py"

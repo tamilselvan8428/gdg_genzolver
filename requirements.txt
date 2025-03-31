@@ -1,8 +1,7 @@
 streamlit
 requests
-google-generativeai
-beautifulsoup4
 selenium
-undetected-chromedriver
+beautifulsoup4
 pyperclip
-gunicorn
+google-generativeai
+    
