@@ -17,7 +17,7 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI Setup ---
-st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
+st.title("🤖 GDG GenZolver - LeetCode Auto-Solver & Analytics Chatbot")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 # --- 🗂 Cache LeetCode Problems ---
