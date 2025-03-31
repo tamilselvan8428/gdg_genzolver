@@ -1,20 +1,17 @@
-# Use official Python image
-FROM python:3.9
+# Use the official Python base image
+FROM python:3.10
 
 # Set the working directory
 WORKDIR /app
 
-# Copy requirements
-COPY requirements.txt .
+# Copy the app files into the container
+COPY . /app
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Expose the port Streamlit runs on
+EXPOSE 8501
 
-# Expose port 8080 for Cloud Run
-EXPOSE 8080
-
-# Run the app
-CMD ["python", "app.py"]
+# Run Streamlit when the container starts
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
