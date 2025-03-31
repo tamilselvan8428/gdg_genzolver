@@ -1,7 +1,6 @@
-streamlit
+Flask
 requests
-google-generativeai
 beautifulsoup4
 selenium
-undetected-chromedriver
-pyperclip
+webdriver-manager
+google-generativeai
