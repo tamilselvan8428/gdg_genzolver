@@ -1,17 +1,17 @@
 import os
 import streamlit as st
+import webbrowser
 import requests
 import time
+import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+import platform
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
-
 # --- 🔐 Gemini API Setup ---
 API_KEY = "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"
 genai.configure(api_key=API_KEY)
@@ -19,7 +19,7 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & App Launcher")
-st.write("Type 'Solve LeetCode [problem number]'.")
+st.write("Type 'Solve LeetCode [problem number]' or 'Open [app name]'.")
 
 # --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
@@ -39,23 +39,20 @@ problems_dict = fetch_problems()
 def get_slug(pid): 
     return problems_dict.get(pid)
 
-# --- 🚀 Set Up Selenium ---
-def setup_selenium():
-    """Set up Selenium with headless Chrome for deployment."""
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--remote-debugging-port=9222")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    
-    service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=options)
+def open_problem(pid):
+    """Open the LeetCode problem only if it's not already open."""
+    slug = get_slug(pid)
+    if slug:
+        url = f"https://leetcode.com/problems/{slug}/"
+        webbrowser.open(url, new=2)  # Open in a new tab
+        time.sleep(7)
+        return url
+    st.error("❌ Invalid problem number.")
+    return None
 
 # --- 📝 Fetch Problem Statement ---
 def get_problem_statement(slug):
-    """Fetch problem statement using LeetCode GraphQL API."""
+    """Fetch the problem statement from LeetCode using GraphQL API."""
     try:
         query = {
             "query": """
@@ -94,50 +91,65 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Submit Solution Using Selenium ---
+# --- 🛠 Submit Solution ---    
 def submit_solution(pid, lang, sol):
-    """Automate LeetCode submission using Selenium."""
-    slug = get_slug(pid)
-    if not slug:
-        st.error("❌ Invalid problem number.")
-        return
-    
-    url = f"https://leetcode.com/problems/{slug}/"
-    driver = setup_selenium()
-    driver.get(url)
-    time.sleep(5)
-
+    """Automate pasting and submitting the solution on LeetCode using Selenium."""
     try:
-        # Click on the code editor
+        st.info("🔍 Opening LeetCode page...")
+        url = open_problem(pid)
+
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Run in headless mode
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get(url)
+        time.sleep(5)
+
+        st.info("⌨ Locating code editor...")
         editor = driver.find_element(By.CLASS_NAME, "CodeMirror")
         editor.click()
         time.sleep(2)
 
-        # Paste solution
-        pyperclip.copy(sol)
-        editor.send_keys(Keys.CONTROL, 'a')
-        editor.send_keys(Keys.CONTROL, 'v')
+        st.info("📋 Pasting solution...")
+        editor.send_keys(Keys.CONTROL + "a")  # Select all
+        editor.send_keys(Keys.CONTROL + "v")  # Paste solution
         time.sleep(2)
 
-        # Run solution
-        run_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
-        run_btn.click()
-        st.info("🚀 Running code...")
+        st.info("🚀 Running the code...")
+        run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
+        run_button.click()
         time.sleep(10)
 
-        # Submit solution
-        submit_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-        submit_btn.click()
+        st.success("✅ Code executed successfully! Now submitting...")
+
+        submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+        submit_button.click()
+        time.sleep(10)
+
         st.success(f"✅ Problem {pid} submitted successfully!")
+        driver.quit()
 
     except Exception as e:
         st.error(f"❌ Selenium Error: {e}")
 
-    finally:
-        driver.quit()
+# --- ✅ Open Any Application on Windows ---
+def open_application(app_name):
+    """Opens any application using Windows search (Win + S) and Enter."""
+    try:
+        st.info(f"🔍 Searching and opening '{app_name}'...")
+        pyautogui.hotkey('win', 's')  # Open Windows Search
+        time.sleep(1)
+        pyautogui.write(app_name)  # Type app name
+        time.sleep(1)
+        pyautogui.press('enter')  # Open app
+        st.success(f"✅ '{app_name}' opened successfully!")
+    except Exception as e:
+        st.error(f"❌ Error opening app: {e}")
 
 # --- 🎯 User Input Handling ---
-user_input = st.text_input("Your command:")
+user_input = st.text_input("Your command or question:")
 
 if user_input.lower().startswith("solve leetcode"):
     tokens = user_input.strip().split()
@@ -147,6 +159,7 @@ if user_input.lower().startswith("solve leetcode"):
         if slug:
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
             if st.button("Generate & Submit Solution"):
+                open_problem(pid)
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
@@ -155,3 +168,18 @@ if user_input.lower().startswith("solve leetcode"):
             st.error("❌ Invalid problem number.")
     else:
         st.error("❌ Use format: Solve LeetCode [problem number]")
+
+elif user_input.lower().startswith("open"):
+    tokens = user_input.strip().split(maxsplit=1)
+    if len(tokens) == 2:
+        app_name = tokens[1]
+        open_application(app_name)
+    else:
+        st.error("❌ Use format: Open [app name]")
+
+elif user_input:
+    try:
+        res = model.generate_content(user_input)
+        st.chat_message("assistant").write(res.text)
+    except Exception as e:
+        st.error(f"❌ Gemini Error: {e}")
