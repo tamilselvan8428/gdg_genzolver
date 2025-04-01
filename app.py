@@ -19,7 +19,7 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & App Launcher")
-st.write("Type 'Solve LeetCode [problem number]'.")
+st.write("Type 'Solve LeetCode [problem number]'. You can also enter commands like 'Open [app name]'.")
 
 # --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
@@ -159,6 +159,14 @@ if user_input.lower().startswith("solve leetcode"):
             st.error("❌ Invalid problem number.")
     else:
         st.error("❌ Use format: Solve LeetCode [problem number]")
+
+elif user_input.lower().startswith("open"):
+    tokens = user_input.strip().split(maxsplit=1)
+    if len(tokens) == 2:
+        app_name = tokens[1]
+        open_application(app_name)  # Add this function if you need app launcher feature
+    else:
+        st.error("❌ Use format: Open [app name]")
 
 elif user_input:
     try:
