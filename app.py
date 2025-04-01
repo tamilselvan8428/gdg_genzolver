@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import webbrowser
 import requests
@@ -6,6 +7,7 @@ import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+import platform
 
 # --- 🔐 Gemini API Setup ---
 API_KEY = "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"
@@ -13,8 +15,8 @@ genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI Setup ---
-st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
-st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
+st.title("🤖 LeetCode Auto-Solver & App Launcher")
+st.write("Type 'Solve LeetCode [problem number]' or 'Open [app name]'.")
 
 # --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
@@ -35,12 +37,12 @@ def get_slug(pid):
     return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Open the LeetCode problem in the browser."""
+    """Open the LeetCode problem only if it's not already open."""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
-        webbrowser.open(url)
-        time.sleep(7)  # Wait for page to load
+        webbrowser.open(url, new=2)  # Open in a new tab
+        time.sleep(7)
         return url
     st.error("❌ Invalid problem number.")
     return None
@@ -86,76 +88,56 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🔍 Page Verification ---
-def ensure_leetcode_page(pid):
-    """Ensure the correct LeetCode problem page is open."""
-    open_problem(pid)
-
-def focus_on_editor():
-    """Ensure the editor is selected and paste the solution directly."""
-    time.sleep(3)
-
-    # Move mouse to LeetCode editor's area and click (adjust coordinates as needed)
-    pyautogui.click(x=800, y=500)  # Update these coordinates based on your screen resolution
-    
-    time.sleep(1)
-
-    # Ensure paste action happens in the LeetCode editor
-    pyautogui.hotkey('ctrl', 'a')  # Select all existing code
-    pyautogui.hotkey('ctrl', 'v')  # Paste new code
-    time.sleep(1)
-
 # --- 🛠 Submit Solution ---    
 def submit_solution(pid, lang, sol):
-    """Automate the process of opening LeetCode, pasting solution, running, and submitting."""
+    """Automate the process of pasting and submitting solution on LeetCode."""
     try:
         st.info("🔍 Opening LeetCode page...")
-        ensure_leetcode_page(pid)
+        open_problem(pid)
 
-        st.info("🚀 Switching to LeetCode browser window...")
-        time.sleep(3)
-        pyautogui.hotkey('alt', 'tab')  # Switch to browser
-        time.sleep(3)
-
-        # Copy solution to clipboard before pasting
+        # Copy solution to clipboard
         pyperclip.copy(sol)
 
-        st.info("⌨ Moving to editor and pasting solution...")
-        focus_on_editor()  # Click into editor and paste
+        st.info("⌨ Clicking on editor and pasting solution...")
+        time.sleep(3)
+
+        # Move mouse to LeetCode editor's area and click (adjust coordinates)
+        pyautogui.click(x=1500, y=400)  # Adjust based on screen resolution
+        time.sleep(1)
+
+        # Select all and paste new solution
+        pyautogui.hotkey('ctrl', 'a')  
+        pyautogui.hotkey('ctrl', 'v')  
+        time.sleep(1)
 
         # Run the solution
         pyautogui.hotkey('ctrl', '`')
         st.info("🚀 Running code...")
         time.sleep(8)
 
-        if is_run_successful():
-            st.success("✅ Code executed successfully! Now submitting...")
+        st.success("✅ Code executed successfully! Now submitting...")
 
-            # Submit the solution
-            pyautogui.hotkey('ctrl', 'enter')
-            st.info("🏆 Submitting solution...")
-            time.sleep(10)
-
-            if is_submission_successful():
-                st.success(f"✅ Problem {pid} submitted successfully!")
-            else:
-                st.error("❌ Submission failed. Retrying...")
-                submit_solution(pid, lang, sol)  # Retry if needed
-        else:
-            st.error("❌ Run failed. Check the solution or retry.")
+        # Submit the solution
+        pyautogui.hotkey('ctrl', 'enter')
+        st.info("🏆 Submitting solution...")
+        time.sleep(10)
+        st.success(f"✅ Problem {pid} submitted successfully!")
     except Exception as e:
         st.error(f"❌ PyAutoGUI Error: {e}")
 
-# --- ✅ Verification Helpers ---
-def is_run_successful():
-    """Check if code execution was successful."""
-    time.sleep(5)
-    return True  # Mock function; replace with image detection if needed
-
-def is_submission_successful():
-    """Check if submission was successful."""
-    time.sleep(5)
-    return True  # Mock function; replace with image detection if needed
+# --- ✅ Open Any Application on Windows ---
+def open_application(app_name):
+    """Opens any application using Windows search (Win + S) and Enter."""
+    try:
+        st.info(f"🔍 Searching and opening '{app_name}'...")
+        pyautogui.hotkey('win', 's')  # Open Windows Search
+        time.sleep(1)
+        pyautogui.write(app_name)  # Type app name
+        time.sleep(1)
+        pyautogui.press('enter')  # Open app
+        st.success(f"✅ '{app_name}' opened successfully!")
+    except Exception as e:
+        st.error(f"❌ Error opening app: {e}")
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
@@ -177,6 +159,15 @@ if user_input.lower().startswith("solve leetcode"):
             st.error("❌ Invalid problem number.")
     else:
         st.error("❌ Use format: Solve LeetCode [problem number]")
+
+elif user_input.lower().startswith("open"):
+    tokens = user_input.strip().split(maxsplit=1)
+    if len(tokens) == 2:
+        app_name = tokens[1]
+        open_application(app_name)
+    else:
+        st.error("❌ Use format: Open [app name]")
+
 elif user_input:
     try:
         res = model.generate_content(user_input)
