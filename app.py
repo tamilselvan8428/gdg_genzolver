@@ -3,20 +3,23 @@ import streamlit as st
 import webbrowser
 import requests
 import time
-import pyautogui
 import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
-import platform
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 # --- 🔐 Gemini API Setup ---
-API_KEY = "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"
+API_KEY = "YOUR_GEMINI_API_KEY"
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & App Launcher")
-st.write("Type 'Solve LeetCode [problem number]' or 'Open [app name]'.")
+st.write("Type 'Solve LeetCode [problem number]'.")
 
 # --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
@@ -37,14 +40,11 @@ def get_slug(pid):
     return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Open the LeetCode problem only if it's not already open."""
+    """Open the LeetCode problem using Selenium."""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
-        webbrowser.open(url, new=2)  # Open in a new tab
-        time.sleep(7)
         return url
-    st.error("❌ Invalid problem number.")
     return None
 
 # --- 📝 Fetch Problem Statement ---
@@ -88,59 +88,60 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🛠 Submit Solution ---    
+# --- 🛠 Submit Solution Using Selenium ---
 def submit_solution(pid, lang, sol):
-    """Automate the process of pasting and submitting solution on LeetCode."""
+    """Automate the process of pasting and submitting a solution on LeetCode using Selenium."""
+    url = open_problem(pid)
+    if not url:
+        st.error("❌ Invalid problem number.")
+        return
+
+    # Start Selenium WebDriver for Edge
+    service = Service(EdgeChromiumDriverManager().install())
+    driver = webdriver.Edge(service=service)
+    driver.get(url)
+    time.sleep(5)
+
     try:
-        st.info("🔍 Opening LeetCode page...")
-        open_problem(pid)
+        # Click "Sign In" (if needed)
+        try:
+            sign_in_btn = driver.find_element(By.XPATH, "//a[contains(text(), 'Sign in')]")
+            sign_in_btn.click()
+            st.info("🔑 Please log in manually.")
+            time.sleep(20)  # Wait for manual login
+        except:
+            st.info("✅ Already logged in.")
 
-        # Copy solution to clipboard
+        # Click on the code editor
+        editor = driver.find_element(By.CLASS_NAME, "CodeMirror")
+        editor.click()
+        time.sleep(2)
+
+        # Paste the solution
         pyperclip.copy(sol)
-
-        st.info("⌨ Clicking on editor and pasting solution...")
-        time.sleep(3)
-
-        # Move mouse to LeetCode editor's area and click (adjust coordinates)
-        pyautogui.click(x=1500, y=400)  # Adjust based on screen resolution
-        time.sleep(1)
-
-        # Select all and paste new solution
-        pyautogui.hotkey('ctrl', 'a')  
-        pyautogui.hotkey('ctrl', 'v')  
-        time.sleep(1)
+        editor.send_keys(Keys.CONTROL, 'a')
+        editor.send_keys(Keys.CONTROL, 'v')
+        time.sleep(2)
 
         # Run the solution
-        pyautogui.hotkey('ctrl', '`')
+        run_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
+        run_btn.click()
         st.info("🚀 Running code...")
-        time.sleep(8)
-
-        st.success("✅ Code executed successfully! Now submitting...")
+        time.sleep(10)
 
         # Submit the solution
-        pyautogui.hotkey('ctrl', 'enter')
-        st.info("🏆 Submitting solution...")
-        time.sleep(10)
+        submit_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+        submit_btn.click()
         st.success(f"✅ Problem {pid} submitted successfully!")
-    except Exception as e:
-        st.error(f"❌ PyAutoGUI Error: {e}")
 
-# --- ✅ Open Any Application on Windows ---
-def open_application(app_name):
-    """Opens any application using Windows search (Win + S) and Enter."""
-    try:
-        st.info(f"🔍 Searching and opening '{app_name}'...")
-        pyautogui.hotkey('win', 's')  # Open Windows Search
-        time.sleep(1)
-        pyautogui.write(app_name)  # Type app name
-        time.sleep(1)
-        pyautogui.press('enter')  # Open app
-        st.success(f"✅ '{app_name}' opened successfully!")
     except Exception as e:
-        st.error(f"❌ Error opening app: {e}")
+        st.error(f"❌ Selenium Error: {e}")
+
+    finally:
+        driver.quit()
 
 # --- 🎯 User Input Handling ---
-user_input = st.text_input("Your command or question:")
+user_input = st.text_input("Your command:")
 
 if user_input.lower().startswith("solve leetcode"):
     tokens = user_input.strip().split()
@@ -150,7 +151,6 @@ if user_input.lower().startswith("solve leetcode"):
         if slug:
             lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
             if st.button("Generate & Submit Solution"):
-                open_problem(pid)
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
@@ -159,14 +159,6 @@ if user_input.lower().startswith("solve leetcode"):
             st.error("❌ Invalid problem number.")
     else:
         st.error("❌ Use format: Solve LeetCode [problem number]")
-
-elif user_input.lower().startswith("open"):
-    tokens = user_input.strip().split(maxsplit=1)
-    if len(tokens) == 2:
-        app_name = tokens[1]
-        open_application(app_name)
-    else:
-        st.error("❌ Use format: Open [app name]")
 
 elif user_input:
     try:
