@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 # --- 🔐 Secure API Key Setup ---
 API_KEY = os.getenv("GEMINI_API_KEY")  # Load from environment variable
@@ -76,23 +77,23 @@ def solve_with_gemini(pid, lang, text):
 
 # --- 🚀 Selenium Browser Automation (Cloud-Compatible) ---
 def setup_browser():
-    options = Options()
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    SELENIUM_GRID_URL = "https://tamilselvanmece_d0tNBu:9sGyHW4wAfgSqFfqizzu@hub-cloud.browserstack.com/wd/hub"
 
-    SELENIUM_GRID_URL = "https://tamilselvanmece_d0tNBu:9sGyHW4wAfgSqFfqizzu@hub-cloud.browserstack.com/wd/hub"  # Replace with your credentials
-
-    # Specify the browser and OS (BrowserStack capability settings)
-    capabilities = {
-        "browserName": "Chrome",
-        "browserVersion": "latest",
+    caps = {
+        "browser": "chrome",
+        "browser_version": "latest",
         "os": "Windows",
-        "osVersion": "10",
-        "sessionName": "LeetCode Auto-Solver",
+        "os_version": "10",
+        "name": "LeetCode Automation",
     }
-
-    driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=options)
+    options = Options()
+    options.add_argument("--headless")
+    
+    driver = webdriver.Remote(
+        command_executor=SELENIUM_GRID_URL,
+        desired_capabilities=caps,
+        options=options
+    )
     return driver
 
 def submit_solution(pid, lang, sol):
