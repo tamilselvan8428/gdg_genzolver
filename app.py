@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import requests
 import time
+import threading
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -81,7 +82,8 @@ def setup_browser():
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--remote-debugging-port=9222")  # Enable debugging
-    driver = webdriver.Chrome(options=options)
+    SELENIUM_GRID_URL = "http://your-selenium-server:4444/wd/hub"  # Update this
+    driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=options)
     return driver
 
 def submit_solution(pid, lang, sol):
@@ -123,6 +125,11 @@ def submit_solution(pid, lang, sol):
     finally:
         driver.quit()
 
+def submit_solution_async(pid, lang, sol):
+    thread = threading.Thread(target=submit_solution, args=(pid, lang, sol))
+    thread.start()
+    st.success(f"🚀 Submitting {pid} in background!")
+
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
 
@@ -137,7 +144,7 @@ if user_input.lower().startswith("solve leetcode"):
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
-                submit_solution(pid, lang, solution)
+                submit_solution_async(pid, lang, solution)
         else:
             st.error("❌ Invalid problem number.")
     else:
