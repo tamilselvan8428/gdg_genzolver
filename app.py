@@ -9,13 +9,15 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from google.cloud import secretmanager
-
+import os
+from google.cloud import secretmanager
 # --- 🔐 Secure Gemini API Key from Google Cloud Secrets ---
 def get_api_key():
     client = secretmanager.SecretManagerServiceClient()
-    name = "projects/<your-project-id>/secrets/gemini-api-key/versions/latest"
-    return client.access_secret_version(name=name).payload.data.decode("UTF-8")
-
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
+    response = client.access_secret_version(name=name)
+    return response.payload.data.decode("UTF-8")
 genai.configure(api_key=get_api_key())
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
@@ -87,11 +89,13 @@ def solve_with_gemini(pid, lang, text):
         return f"❌ Gemini Error: {e}"
 
 def setup_selenium():
-    options = Options()
-    options.add_argument("--headless")  # Run in headless mode
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.binary_location = "/usr/bin/chromium"
     return webdriver.Chrome(options=options)
+
 
 def submit_solution_selenium(pid, lang, sol):
     try:
