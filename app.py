@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 # --- 🔐 Secure API Key Setup ---
 API_KEY = os.getenv("GEMINI_API_KEY")  # Load from environment variable
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel("gemini-1.5-pro-latest")
+model = genai.GenerativeModel("gemini-1.5-pro-latest", safety_settings={"safetyMode": "high"})
 
 # --- 🌐 Streamlit UI ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -54,23 +54,30 @@ def get_problem_statement(slug):
     return "❌ Failed to fetch problem."
 
 def solve_with_gemini(pid, lang, text):
+    """Generate a guided solution using Gemini AI."""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
     
-    prompt = f"""Solve the following LeetCode problem in {lang}:
-    Problem:  
+    prompt = f"""You are an expert coding assistant. Help the user solve this problem in {lang}.
+    
+    Problem:
     {text}
-    Requirements:
-    - Follow LeetCode function signature.
-    - Return only the full class definition with the method inside.
-    - Do NOT use code fences.
-    Solution:"""
+    
+    Guidelines:
+    - Explain the approach first.
+    - Provide code in {lang} following the problem's constraints.
+    - Ensure the explanation does not contain direct copyrighted material.
+    - Format the response naturally, like a discussion with a coding mentor.
+    
+    Please provide a well-structured response that helps the user understand and solve the problem.
+    """
     
     try:
         res = model.generate_content(prompt)
-        return res.text.strip()
+        return res.text.strip() if res.text else "❌ Gemini did not return a response."
     except Exception as e:
         return f"❌ Gemini Error: {e}"
+
 
 # --- 🚀 Selenium Browser Automation (Headless Mode) ---
 def setup_browser():
