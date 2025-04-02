@@ -1,8 +1,7 @@
-import os
 import streamlit as st
 import requests
 import time
-import threading
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -12,17 +11,18 @@ from selenium.webdriver.support import expected_conditions as EC
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 
-# --- 🔐 Secure API Key Setup ---
-API_KEY = os.getenv("GEMINI_API_KEY")  # Load from environment variable
+# --- 🔐 Gemini API Setup ---
+API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# --- 🌐 Streamlit UI ---
+# --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
+    """Fetch LeetCode problem list."""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
@@ -35,10 +35,11 @@ def fetch_problems():
 
 problems_dict = fetch_problems()
 
-def get_slug(pid): 
+def get_slug(pid):
     return problems_dict.get(pid)
 
 def get_problem_statement(slug):
+    """Fetch the problem statement from LeetCode."""
     try:
         query = {
             "query": """
@@ -56,17 +57,17 @@ def get_problem_statement(slug):
     return "❌ Failed to fetch problem."
 
 def solve_with_gemini(pid, lang, text):
+    """Generate a solution using Gemini AI."""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
     
     prompt = f"""Solve the following LeetCode problem in {lang}:
-    Problem:  
-    {text}
-    Requirements:
-    - Follow LeetCode function signature.
-    - Return only the full class definition with the method inside.
-    - Do NOT use code fences.
-    Solution:"""
+Problem:  
+{text}
+Requirements:
+- Follow the LeetCode function signature.
+- Return only the full class definition with the method inside.
+Solution:"""
     
     try:
         res = model.generate_content(prompt)
@@ -74,63 +75,54 @@ def solve_with_gemini(pid, lang, text):
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-# --- 🚀 Selenium Browser Automation (Cloud-Compatible) ---
 def setup_browser():
+    """Setup Selenium Chrome WebDriver in headless mode."""
     options = Options()
     options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--remote-debugging-port=9222")  # Enable debugging
-    SELENIUM_USERNAME = "tamilselvanmece_d0tNBu"
-    SELENIUM_ACCESS_KEY = "9sGyHW4wAfgSqFfqizzu"
-    SELENIUM_GRID_URL = f"https://{SELENIUM_USERNAME}:{SELENIUM_ACCESS_KEY}@hub-cloud.browserstack.com/wd/hub"
-    driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=options)
+    options.add_argument("--disable-gpu")
+    driver = webdriver.Chrome(options=options)
     return driver
 
 def submit_solution(pid, lang, sol):
-    driver = setup_browser()
+    """Automate the process of opening LeetCode, pasting solution, running, and submitting."""
     slug = get_slug(pid)
     if not slug:
         st.error("❌ Invalid problem number.")
         return
+    
     url = f"https://leetcode.com/problems/{slug}/"
+    st.markdown(f"[Click here to open LeetCode problem {pid}]({url})", unsafe_allow_html=True)
+    
+    driver = setup_browser()
     driver.get(url)
     
     try:
         wait = WebDriverWait(driver, 10)
         
-        # Select language dropdown
-        lang_dropdown = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "select-dropdown")))
-        lang_dropdown.click()
-        driver.find_element(By.XPATH, f"//div[text()='{lang}']").click()
-
-        # Paste the solution
+        st.write("✍ Pasting the solution...")
         editor = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "monaco-editor")))
         editor.click()
         editor.send_keys(Keys.CONTROL, 'a')  # Select all
         editor.send_keys(Keys.DELETE)  # Clear existing code
-        editor.send_keys(sol)  # Type solution manually
+        editor.send_keys(sol)  # Paste solution
         
-        # Run the code
-        run_button = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "run-code")))
+        st.write("🛠 Running the code...")
+        run_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Run')]")))
         run_button.click()
         time.sleep(10)
-
-        # Submit the solution
-        submit_button = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "submit-code")))
+        
+        st.write("🚀 Submitting the solution...")
+        submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Submit')]")))
         submit_button.click()
         time.sleep(10)
+        
         st.success(f"✅ Problem {pid} submitted successfully!")
     except Exception as e:
         st.error(f"❌ Selenium Error: {e}")
     finally:
         driver.quit()
-
-def submit_solution_async(pid, lang, sol):
-    thread = threading.Thread(target=submit_solution, args=(pid, lang, sol))
-    thread.start()
-    st.success(f"🚀 Submitting {pid} in background!")
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
@@ -146,7 +138,7 @@ if user_input.lower().startswith("solve leetcode"):
                 text = get_problem_statement(slug)
                 solution = solve_with_gemini(pid, lang, text)
                 st.code(solution, language=lang)
-                submit_solution_async(pid, lang, solution)
+                submit_solution(pid, lang, solution)
         else:
             st.error("❌ Invalid problem number.")
     else:
