@@ -2,7 +2,6 @@ import os
 import streamlit as st
 import requests
 import time
-import pyperclip
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -17,7 +16,7 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
-st.write("Type 'Solv LeetCode [problem number]' or ask me anything!")
+st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
@@ -71,13 +70,15 @@ def solve_with_gemini(pid, lang, text):
         return res.text.strip()
     except Exception as e:
         return f"❌ Gemini Error: {e}"
-# --- 🚀 Selenium Browser Automation (Headless Mode) ---
+
+# --- 🚀 Selenium Browser Automation (Cloud-Compatible) ---
 def setup_browser():
     options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    if os.getenv("CLOUD_RUN_ENV") == "true":
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
     driver = webdriver.Chrome(options=options)
     return driver
 
@@ -102,9 +103,9 @@ def submit_solution(pid, lang, sol):
         # Paste the solution
         editor = driver.find_element(By.CLASS_NAME, "monaco-editor")
         editor.click()
-        pyperclip.copy(sol)
         editor.send_keys(Keys.CONTROL, 'a')  # Select all
-        editor.send_keys(Keys.CONTROL, 'v')  # Paste
+        editor.send_keys(Keys.DELETE)  # Clear existing code
+        editor.send_keys(sol)  # Type solution manually
         time.sleep(2)
 
         # Run the code
