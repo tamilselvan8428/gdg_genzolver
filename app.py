@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 # --- 🔐 Secure API Key Setup ---
 API_KEY = os.getenv("GEMINI_API_KEY")  # Load from environment variable
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel("gemini-1.5-pro-latest", safety_settings={"safetyMode": "high"})
+model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # --- 🌐 Streamlit UI ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
