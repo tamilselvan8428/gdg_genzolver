@@ -6,6 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 
@@ -74,11 +76,11 @@ def solve_with_gemini(pid, lang, text):
 # --- 🚀 Selenium Browser Automation (Cloud-Compatible) ---
 def setup_browser():
     options = Options()
-    if os.getenv("CLOUD_RUN_ENV") == "true":
-        options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--headless")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--remote-debugging-port=9222")  # Enable debugging
     driver = webdriver.Chrome(options=options)
     return driver
 
@@ -90,31 +92,29 @@ def submit_solution(pid, lang, sol):
         return
     url = f"https://leetcode.com/problems/{slug}/"
     driver.get(url)
-    time.sleep(5)  # Wait for the page to load
     
     try:
+        wait = WebDriverWait(driver, 10)
+        
         # Select language dropdown
-        lang_dropdown = driver.find_element(By.CLASS_NAME, "select-dropdown")
+        lang_dropdown = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "select-dropdown")))
         lang_dropdown.click()
-        time.sleep(1)
         driver.find_element(By.XPATH, f"//div[text()='{lang}']").click()
-        time.sleep(1)
 
         # Paste the solution
-        editor = driver.find_element(By.CLASS_NAME, "monaco-editor")
+        editor = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "monaco-editor")))
         editor.click()
         editor.send_keys(Keys.CONTROL, 'a')  # Select all
         editor.send_keys(Keys.DELETE)  # Clear existing code
         editor.send_keys(sol)  # Type solution manually
-        time.sleep(2)
-
+        
         # Run the code
-        run_button = driver.find_element(By.CLASS_NAME, "run-code")
+        run_button = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "run-code")))
         run_button.click()
         time.sleep(10)
 
         # Submit the solution
-        submit_button = driver.find_element(By.CLASS_NAME, "submit-code")
+        submit_button = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "submit-code")))
         submit_button.click()
         time.sleep(10)
         st.success(f"✅ Problem {pid} submitted successfully!")
