@@ -77,12 +77,21 @@ def solve_with_gemini(pid, lang, text):
 # --- 🚀 Selenium Browser Automation (Cloud-Compatible) ---
 def setup_browser():
     options = Options()
-    options.add_argument("--headless")
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--remote-debugging-port=9222")  # Enable debugging
-    SELENIUM_GRID_URL = "http://your-selenium-server:4444/wd/hub"  # Update this
+
+    SELENIUM_GRID_URL = "https://tamilselvanmece_d0tNBu:9sGyHW4wAfgSqFfqizzu@hub-cloud.browserstack.com/wd/hub"  # Replace with your credentials
+
+    # Specify the browser and OS (BrowserStack capability settings)
+    capabilities = {
+        "browserName": "Chrome",
+        "browserVersion": "latest",
+        "os": "Windows",
+        "osVersion": "10",
+        "sessionName": "LeetCode Auto-Solver",
+    }
+
     driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=options)
     return driver
 
