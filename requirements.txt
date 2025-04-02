@@ -1,6 +1,7 @@
 streamlit
 selenium
 requests
-pyperclip
 beautifulsoup4
 google-generativeai
+google-cloud-storage
+google-cloud-secret-manager
