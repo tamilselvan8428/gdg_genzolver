@@ -70,6 +70,7 @@ def solve_with_gemini(pid, lang, text):
         res = model.generate_content(prompt)
         return res.text.strip()
     except Exception as e:
+        return f"❌ Gemini Error: {e}"
 # --- 🚀 Selenium Browser Automation (Headless Mode) ---
 def setup_browser():
     options = Options()
