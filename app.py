@@ -11,7 +11,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import google.generativeai as genai
 from bs4 import BeautifulSoup
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 # --- 🔐 Secure API Key Setup ---
 API_KEY = os.getenv("GEMINI_API_KEY")  # Load from environment variable
@@ -77,23 +76,16 @@ def solve_with_gemini(pid, lang, text):
 
 # --- 🚀 Selenium Browser Automation (Cloud-Compatible) ---
 def setup_browser():
-    SELENIUM_GRID_URL = "https://tamilselvanmece_d0tNBu:9sGyHW4wAfgSqFfqizzu@hub-cloud.browserstack.com/wd/hub"
-
-    caps = {
-        "browser": "chrome",
-        "browser_version": "latest",
-        "os": "Windows",
-        "os_version": "10",
-        "name": "LeetCode Automation",
-    }
     options = Options()
     options.add_argument("--headless")
-    
-    driver = webdriver.Remote(
-        command_executor=SELENIUM_GRID_URL,
-        desired_capabilities=caps,
-        options=options
-    )
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--remote-debugging-port=9222")  # Enable debugging
+    SELENIUM_USERNAME = "tamilselvanmece_d0tNBu"
+    SELENIUM_ACCESS_KEY = "9sGyHW4wAfgSqFfqizzu"
+    SELENIUM_GRID_URL = f"https://{SELENIUM_USERNAME}:{SELENIUM_ACCESS_KEY}@hub-cloud.browserstack.com/wd/hub"
+    driver = webdriver.Remote(command_executor=SELENIUM_GRID_URL, options=options)
     return driver
 
 def submit_solution(pid, lang, sol):
