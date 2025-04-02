@@ -184,5 +184,5 @@ if "user_input" not in st.session_state:
 
 st.text_input("Your command or question:", key="user_input", on_change=handle_input, args=(st.session_state["user_input"],))
 
-if __name__ == "__main__":
-    st.run(port=PORT, server_headless=True)
+# if __name__ == "__main__":
+#     st.run(port=PORT, server_headless=True)
