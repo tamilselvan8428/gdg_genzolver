@@ -2,24 +2,32 @@ import streamlit as st
 import webbrowser
 import requests
 import time
-import pyperclip
+import os
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from google.cloud import secretmanager
-import os
-from google.cloud import secretmanager
+
 # --- 🔐 Secure Gemini API Key from Google Cloud Secrets ---
 def get_api_key():
-    client = secretmanager.SecretManagerServiceClient()
-    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-    name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
-    response = client.access_secret_version(name=name)
-    return response.payload.data.decode("UTF-8")
-genai.configure(api_key=get_api_key())
-model = genai.GenerativeModel("gemini-1.5-pro-latest")
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
+        response = client.access_secret_version(name=name)
+        return response.payload.data.decode("UTF-8")
+    except Exception as e:
+        st.error(f"❌ Failed to fetch API Key: {e}")
+        return None
+
+api_key = get_api_key()
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-pro-latest")
+else:
+    model = None
 
 # --- 🌐 Streamlit UI Setup ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
@@ -27,6 +35,7 @@ st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
+    """Fetch all LeetCode problems"""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
@@ -43,6 +52,7 @@ def get_slug(pid):
     return problems_dict.get(pid)
 
 def open_problem(pid):
+    """Opens the LeetCode problem in a web browser"""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
@@ -52,6 +62,7 @@ def open_problem(pid):
     return None
 
 def get_problem_statement(slug):
+    """Fetch problem statement using LeetCode GraphQL API"""
     try:
         query = {
             "query": """
@@ -69,6 +80,7 @@ def get_problem_statement(slug):
     return "❌ Failed to fetch problem."
 
 def solve_with_gemini(pid, lang, text):
+    """Generates a LeetCode solution using Gemini AI"""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
     
@@ -82,49 +94,63 @@ def solve_with_gemini(pid, lang, text):
     - Do NOT use code fences.
     Solution:"""
     
-    try:
-        res = model.generate_content(prompt)
-        return res.text.strip()
-    except Exception as e:
-        return f"❌ Gemini Error: {e}"
+    if model:
+        try:
+            res = model.generate_content(prompt)
+            return res.text.strip()
+        except Exception as e:
+            return f"❌ Gemini Error: {e}"
+    return "❌ AI Model not initialized."
 
 def setup_selenium():
-    options = webdriver.ChromeOptions()
+    """Configures and initializes Selenium WebDriver"""
+    options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.binary_location = "/usr/bin/chromium"
-    return webdriver.Chrome(options=options)
-
+    
+    driver = webdriver.Chrome(options=options)
+    return driver
 
 def submit_solution_selenium(pid, lang, sol):
+    """Automates solution submission on LeetCode"""
     try:
         driver = setup_selenium()
         slug = get_slug(pid)
+        if not slug:
+            st.error("❌ Invalid problem number.")
+            return
+
         url = f"https://leetcode.com/problems/{slug}/"
         driver.get(url)
         time.sleep(5)
-        
+
+        # Find the textarea for code input
         editor = driver.find_element("css selector", "textarea")
         editor.clear()
         editor.send_keys(sol)
         editor.send_keys(Keys.CONTROL, "a")
         editor.send_keys(Keys.CONTROL, "v")
-        
+
+        # Click Run button
         run_button = driver.find_element("xpath", "//button[contains(text(), 'Run')]" )
         run_button.click()
         time.sleep(8)
-        
+
+        # Click Submit button
         submit_button = driver.find_element("xpath", "//button[contains(text(), 'Submit')]" )
         submit_button.click()
         time.sleep(10)
-        
+
         st.success(f"✅ Problem {pid} submitted successfully!")
         driver.quit()
     except Exception as e:
         st.error(f"❌ Selenium Error: {e}")
 
 def handle_input(user_input):
+    """Handles user input for solving problems"""
     if user_input.lower().startswith("solve leetcode"):
         tokens = user_input.strip().split()
         if len(tokens) == 3 and tokens[2].isdigit():
@@ -149,5 +175,9 @@ def handle_input(user_input):
         except Exception as e:
             st.error(f"❌ Gemini Error: {e}")
 
-user_input = st.text_input("Your command or question:")
-handle_input(user_input)
+# --- 🌍 Run Streamlit on Cloud Run Required Port ---
+PORT = int(os.getenv("PORT", 8080))
+st.text_input("Your command or question:", key="user_input", on_change=handle_input, args=(st.session_state["user_input"],))
+
+if __name__ == "__main__":
+    st.run(port=PORT, server_headless=True)
