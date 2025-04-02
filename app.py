@@ -1,18 +1,18 @@
 import streamlit as st
+import webbrowser
 import requests
 import time
-import os
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 🔐 Gemini API Setup ---
-API_KEY = os.getenv("GEMINI_API_KEY")
+API_KEY = "YOUR_GEMINI_API_KEY"
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
@@ -20,9 +20,9 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
+# --- 🗂 Cache LeetCode Problems ---
 @st.cache_data
 def fetch_problems():
-    """Fetch LeetCode problem list."""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
@@ -35,11 +35,25 @@ def fetch_problems():
 
 problems_dict = fetch_problems()
 
-def get_slug(pid):
+def get_slug(pid): 
     return problems_dict.get(pid)
 
+# --- 🌍 Selenium Setup (Headless Mode) ---
+def setup_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run in headless mode (no UI)
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    return driver
+
+# --- 📝 Fetch Problem Statement ---
 def get_problem_statement(slug):
-    """Fetch the problem statement from LeetCode."""
+    """Fetch the problem statement from LeetCode using GraphQL API."""
     try:
         query = {
             "query": """
@@ -56,6 +70,7 @@ def get_problem_statement(slug):
         return f"❌ GraphQL error: {e}"
     return "❌ Failed to fetch problem."
 
+# --- 🤖 Gemini AI Solver ---
 def solve_with_gemini(pid, lang, text):
     """Generate a solution using Gemini AI."""
     if text.startswith("❌"):
@@ -65,8 +80,10 @@ def solve_with_gemini(pid, lang, text):
 Problem:  
 {text}
 Requirements:
+- Wrap the solution inside class Solution {{ public: ... }}.
 - Follow the LeetCode function signature.
 - Return only the full class definition with the method inside.
+- Do NOT use code fences.
 Solution:"""
     
     try:
@@ -75,16 +92,7 @@ Solution:"""
     except Exception as e:
         return f"❌ Gemini Error: {e}"
 
-def setup_browser():
-    """Setup Selenium Chrome WebDriver in headless mode."""
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    driver = webdriver.Chrome(options=options)
-    return driver
-
+# --- 🔍 Open & Automate LeetCode ---
 def submit_solution(pid, lang, sol):
     """Automate the process of opening LeetCode, pasting solution, running, and submitting."""
     slug = get_slug(pid)
@@ -93,36 +101,82 @@ def submit_solution(pid, lang, sol):
         return
     
     url = f"https://leetcode.com/problems/{slug}/"
-    st.markdown(f"[Click here to open LeetCode problem {pid}]({url})", unsafe_allow_html=True)
-    
-    driver = setup_browser()
+    st.info(f"🔍 Opening LeetCode problem: {url}")
+
+    # Start Selenium driver
+    driver = setup_driver()
     driver.get(url)
-    
+    time.sleep(5)
+
+    # --- Log in (if required) ---
     try:
-        wait = WebDriverWait(driver, 10)
-        
-        st.write("✍ Pasting the solution...")
-        editor = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "monaco-editor")))
-        editor.click()
-        editor.send_keys(Keys.CONTROL, 'a')  # Select all
-        editor.send_keys(Keys.DELETE)  # Clear existing code
-        editor.send_keys(sol)  # Paste solution
-        
-        st.write("🛠 Running the code...")
-        run_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Run')]")))
+        login_button = driver.find_element(By.XPATH, "//a[text()='Sign in']")
+        login_button.click()
+        time.sleep(3)
+
+        # Enter credentials (Ensure to replace with your credentials or use environment variables)
+        username_input = driver.find_element(By.ID, "id_login")
+        password_input = driver.find_element(By.ID, "id_password")
+
+        username_input.send_keys("YOUR_LEETCODE_EMAIL")
+        password_input.send_keys("YOUR_LEETCODE_PASSWORD")
+        password_input.send_keys(Keys.RETURN)
+        time.sleep(5)
+    except:
+        st.info("✅ Already logged in.")
+
+    # --- Select Language ---
+    try:
+        lang_dropdown = driver.find_element(By.CLASS_NAME, "Select__control")
+        lang_dropdown.click()
+        time.sleep(2)
+
+        lang_option = driver.find_element(By.XPATH, f"//div[text()='{lang.capitalize()}']")
+        lang_option.click()
+        time.sleep(2)
+    except:
+        st.info("⚠ Language selection skipped (default used).")
+
+    # --- Select Editor and Paste Solution ---
+    try:
+        code_editor = driver.find_element(By.CLASS_NAME, "view-line")
+        code_editor.click()
+        time.sleep(1)
+
+        # Clear existing code
+        code_editor.send_keys(Keys.CONTROL + "a")
+        code_editor.send_keys(Keys.BACKSPACE)
+
+        # Paste new solution
+        for line in sol.split("\n"):
+            code_editor.send_keys(line)
+            code_editor.send_keys(Keys.SHIFT + Keys.ENTER)
+
+        st.info("⌨ Solution pasted successfully!")
+    except:
+        st.error("❌ Error pasting solution.")
+
+    # --- Run the solution ---
+    try:
+        run_button = driver.find_element(By.XPATH, "//button[text()='Run']")
         run_button.click()
+        st.info("🚀 Running the solution...")
         time.sleep(10)
-        
-        st.write("🚀 Submitting the solution...")
-        submit_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Submit')]")))
+    except:
+        st.error("❌ Run button not found.")
+
+    # --- Submit the solution ---
+    try:
+        submit_button = driver.find_element(By.XPATH, "//button[text()='Submit']")
         submit_button.click()
+        st.info("🏆 Submitting the solution...")
         time.sleep(10)
-        
         st.success(f"✅ Problem {pid} submitted successfully!")
-    except Exception as e:
-        st.error(f"❌ Selenium Error: {e}")
-    finally:
-        driver.quit()
+    except:
+        st.error("❌ Submission failed.")
+
+    # Close the browser
+    driver.quit()
 
 # --- 🎯 User Input Handling ---
 user_input = st.text_input("Your command or question:")
