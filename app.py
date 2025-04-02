@@ -12,15 +12,17 @@ from google.cloud import secretmanager
 
 # --- 🔐 Secure Gemini API Key from Google Cloud Secrets ---
 def get_api_key():
+    client = secretmanager.SecretManagerServiceClient()
+    project_id = "genzolver-455514"  # ✅ Hardcoded project ID to avoid "None"
+    name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
+    
     try:
-        client = secretmanager.SecretManagerServiceClient()
-        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-        name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
         response = client.access_secret_version(name=name)
         return response.payload.data.decode("UTF-8")
     except Exception as e:
         st.error(f"❌ Failed to fetch API Key: {e}")
         return None
+
 
 api_key = get_api_key()
 if api_key:
@@ -177,6 +179,9 @@ def handle_input(user_input):
 
 # --- 🌍 Run Streamlit on Cloud Run Required Port ---
 PORT = int(os.getenv("PORT", 8080))
+if "user_input" not in st.session_state:
+    st.session_state["user_input"] = ""
+
 st.text_input("Your command or question:", key="user_input", on_change=handle_input, args=(st.session_state["user_input"],))
 
 if __name__ == "__main__":
