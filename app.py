@@ -17,7 +17,7 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest", safety_settings={"safetyM
 
 # --- 🌐 Streamlit UI ---
 st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
-st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
+st.write("Type 'Solv LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
