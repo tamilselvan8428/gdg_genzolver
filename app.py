@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 
 # --- Fetch API Key ---
 def get_api_key():
-    return "YOUR_GEMINI_API_KEY"  # Replace this with actual API key fetching from Google Cloud
+    return "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"  # Replace this with actual API key fetching from Google Cloud
 
 api_key = get_api_key()
 if api_key:
