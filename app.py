@@ -33,7 +33,7 @@ else:
     model = None
 
 # --- 🌐 Streamlit UI Setup ---
-st.title("🤖 LeetCode Auto-Solver & Analytics Chatbot")
+st.title("🤖 Solve your problem with Genzolver")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
@@ -152,9 +152,9 @@ def submit_solution_selenium(pid, lang, sol):
         st.error(f"❌ Selenium Error: {e}")
 
 def handle_input():
-    """Handles user input for solving problems"""
+    """Handles user input for both LeetCode solving and general queries"""
     user_input = st.session_state["user_input"].strip()
-    
+
     if user_input.lower().startswith("solve leetcode"):
         tokens = user_input.split()
         if len(tokens) == 3 and tokens[2].isdigit():
@@ -172,6 +172,25 @@ def handle_input():
                 st.error("❌ Invalid problem number.")
         else:
             st.error("❌ Use format: Solve LeetCode [problem number]")
+    
+    else:
+        # ✅ Handle general queries (e.g., "write a basic code in Python")
+        if model:
+            try:
+                response = model.generate_content(user_input)
+                st.write(response.text.strip())  # Display the AI-generated response
+            except Exception as e:
+                st.error(f"❌ Gemini AI Error: {e}")
+        else:
+            st.error("❌ AI Model not initialized.")
+
+# ✅ Ensure session state is initialized
+if "user_input" not in st.session_state:
+    st.session_state["user_input"] = ""
+
+# 📝 Handle user input
+st.text_input("Your command or question:", key="user_input", on_change=handle_input)
+
 
 # ✅ Ensure session state is initialized
 if "user_input" not in st.session_state:
