@@ -1,8 +1,6 @@
 streamlit
-selenium
 requests
 beautifulsoup4
+selenium
 google-generativeai
-google-cloud-storage
-google-cloud-secret-manager
-chromedriver-autoinstaller
+webdriver-manager

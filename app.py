@@ -51,8 +51,8 @@ def get_problem_statement(slug):
         }
         res = requests.post("https://leetcode.com/graphql", json=query)
         if res.status_code == 200:
-            html = res.json()["data"]["question"]["content"]
-            return BeautifulSoup(html, "html.parser").get_text()
+            html = res.json().get("data", {}).get("question", {}).get("content", "")
+            return BeautifulSoup(html, "html.parser").get_text() if html else None
     except Exception as e:
         st.error(f"❌ GraphQL error: {e}")
     return None
@@ -75,7 +75,7 @@ Solution:"""
 
     try:
         response = model.generate_content(prompt)
-        return response.text.strip()
+        return response.text.strip() if response and response.text else None
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
         return None
@@ -109,6 +109,19 @@ if user_input.lower().startswith("solve leetcode"):
 elif user_input:
     try:
         res = model.generate_content(user_input)
-        st.chat_message("assistant").write(res.text)
+        if res and res.text:
+            st.chat_message("assistant").write(res.text)
+        else:
+            st.error("❌ No response generated.")
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
+
+# ✅ Ensure correct port for Cloud Run deployment
+if __name__ == "__main__":
+    st.run(
+        "app.py", 
+        "--server.port=8080", 
+        "--server.address=0.0.0.0", 
+        "--server.enableCORS=false", 
+        "--server.enableXsrfProtection=false"
+    )
