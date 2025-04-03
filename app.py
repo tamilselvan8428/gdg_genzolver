@@ -25,8 +25,6 @@ def get_api_key():
         st.error(f"❌ Failed to fetch API Key: {e}")
         return None
 
-
-
 api_key = get_api_key()
 if api_key:
     genai.configure(api_key=api_key)
@@ -54,7 +52,6 @@ def fetch_problems():
     except Exception as e:
         st.error(f"❌ Error fetching problems: {e}")
     return {}
-
 
 problems_dict = fetch_problems()
 
@@ -132,35 +129,28 @@ def submit_solution_selenium(pid, lang, sol):
         if not slug:
             st.error("❌ Invalid problem number.")
             return
-
         url = f"https://leetcode.com/problems/{slug}/"
         driver.get(url)
         time.sleep(5)
-
-        # Find the textarea for code input
         editor = driver.find_element("css selector", "textarea")
         editor.clear()
         editor.send_keys(sol)
         editor.send_keys(Keys.CONTROL, "a")
         editor.send_keys(Keys.CONTROL, "v")
-
-        # Click Run button
         run_button = driver.find_element("xpath", "//button[contains(text(), 'Run')]" )
         run_button.click()
         time.sleep(8)
-
-        # Click Submit button
         submit_button = driver.find_element("xpath", "//button[contains(text(), 'Submit')]" )
         submit_button.click()
         time.sleep(10)
-
         st.success(f"✅ Problem {pid} submitted successfully!")
         driver.quit()
     except Exception as e:
         st.error(f"❌ Selenium Error: {e}")
 
-def handle_input(user_input):
+def handle_input():
     """Handles user input for solving problems"""
+    user_input = st.session_state.user_input
     if user_input.lower().startswith("solve leetcode"):
         tokens = user_input.strip().split()
         if len(tokens) == 3 and tokens[2].isdigit():
@@ -178,30 +168,10 @@ def handle_input(user_input):
                 st.error("❌ Invalid problem number.")
         else:
             st.error("❌ Use format: Solve LeetCode [problem number]")
-    elif user_input:
-        try:
-            res = model.generate_content(user_input)
-            st.chat_message("assistant").write(res.text)
-        except Exception as e:
-            st.error(f"❌ Gemini Error: {e}")
-
-# --- 🌍 Run Streamlit on Cloud Run Required Port ---
-PORT = int(os.getenv("PORT", 8080))
 
 # ✅ Ensure session state is initialized
 if "user_input" not in st.session_state:
     st.session_state["user_input"] = ""
 
 # 📝 Handle user input
-st.text_input(
-    "Your command or question:",
-    key="user_input",
-    on_change=handle_input,
-    args=(st.session_state.get("user_input", ""),)  # ✅ Use .get() to avoid KeyError
-)
-
-
-st.text_input("Your command or question:", key="user_input", on_change=handle_input, args=(st.session_state["user_input"],))
-
-# if __name__ == "__main__":
-#     st.run(port=PORT, server_headless=True)
+st.text_input("Your command or question:", key="user_input", on_change=handle_input)
