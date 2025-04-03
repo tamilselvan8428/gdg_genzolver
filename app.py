@@ -2,7 +2,6 @@ import streamlit as st
 import webbrowser
 import requests
 import time
-import os
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -183,14 +182,6 @@ def handle_input():
                 st.error(f"❌ Gemini AI Error: {e}")
         else:
             st.error("❌ AI Model not initialized.")
-
-# ✅ Ensure session state is initialized
-if "user_input" not in st.session_state:
-    st.session_state["user_input"] = ""
-
-# 📝 Handle user input
-st.text_input("Your command or question:", key="user_input", on_change=handle_input)
-
 
 # ✅ Ensure session state is initialized
 if "user_input" not in st.session_state:
