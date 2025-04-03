@@ -3,30 +3,25 @@ import streamlit as st
 import webbrowser
 import requests
 import time
-import pyautogui
-import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 
-# Load Gemini API Key
-API_KEY = os.getenv("GEMINI_API_KEY")  # Use environment variable
-genai.configure(api_key=API_KEY)
+# Load API Key from environment variable
+API_KEY = os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    st.error("❌ API Key not found. Set GEMINI_API_KEY as an environment variable.")
+else:
+    genai.configure(api_key=API_KEY)
+
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# Set Streamlit Page Title
+# Set Page Configurations
 st.set_page_config(page_title="GenZolver - LeetCode AI Solver", layout="centered")
 
-# Title Section
-st.markdown(
-    "<h1 style='text-align: center;'>🤖 Solve Your Problem with <span style='color:#FFA500;'>GenZolver</span></h1>",
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<p style='text-align: center; font-size: 18px;'>Type <b>'Solve LeetCode [problem number]'</b> or ask me anything!</p>",
-    unsafe_allow_html=True
-)
+# Title and Instructions
+st.title("🤖 Solve Your Problem with GenZolver")
+st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
-# Load LeetCode Problems
 @st.cache_data
 def fetch_problems():
     try:
@@ -40,23 +35,13 @@ def fetch_problems():
     return {}
 
 problems_dict = fetch_problems()
-st.markdown(f"📌 **Loaded LeetCode Problems:** `{len(problems_dict)}`", unsafe_allow_html=True)
+st.write(f"📌 **Loaded LeetCode Problems:** {len(problems_dict)}")
 
 def get_slug(pid): 
     return problems_dict.get(pid)
 
-def open_problem(pid):
-    slug = get_slug(pid)
-    if slug:
-        url = f"https://leetcode.com/problems/{slug}/"
-        webbrowser.open(url, new=2) 
-        time.sleep(5)
-        return url
-    st.error("❌ Invalid problem number.")
-    return None
-
 def get_problem_statement(slug):
-    """Fetch problem statement from LeetCode"""
+    """Fetch problem statement from LeetCode."""
     try:
         query = {
             "query": """
@@ -68,16 +53,19 @@ def get_problem_statement(slug):
         res = requests.post("https://leetcode.com/graphql", json=query)
         if res.status_code == 200:
             html = res.json()["data"]["question"]["content"]
-            return BeautifulSoup(html, "html.parser").get_text()
+            text = BeautifulSoup(html, "html.parser").get_text()
+            st.write("✅ **Problem Statement Fetched:**", text[:500])  # Debugging
+            return text
     except Exception as e:
-        return f"❌ GraphQL error: {e}"
+        st.error(f"❌ GraphQL error: {e}")
     return "❌ Failed to fetch problem."
 
 def solve_with_gemini(lang, text):
     """Generate a solution using Gemini AI."""
     if text.startswith("❌"):
+        st.error("❌ Problem fetch failed. Skipping Gemini AI request.")
         return "❌ Problem fetch failed."
-
+    
     prompt = f"""Solve the following LeetCode problem in {lang}:
 Problem:  
 {text}
@@ -87,13 +75,17 @@ Requirements:
 - Return only the full class definition with the method inside.
 - Do NOT use code fences.
 Solution:"""
-    
+
+    st.write("🔹 **Prompt Sent to Gemini AI:**", prompt[:500])  # Debugging
     try:
         response = model.generate_content(prompt)
+        st.write("✅ **Gemini AI Response:**", response.text[:500])  # Debugging
         return response.text.strip()
     except Exception as e:
+        st.error(f"❌ Gemini Error: {e}")
         return f"❌ Gemini Error: {e}"
 
+# User Input Handling
 user_input = st.text_input("Your command or question:")
 
 if user_input.lower().startswith("solve leetcode"):
