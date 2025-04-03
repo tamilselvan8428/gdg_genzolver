@@ -1,29 +1,27 @@
 import os
 import streamlit as st
-import webbrowser
 import requests
-import time
 import google.generativeai as genai
 from bs4 import BeautifulSoup
 
-# Load API Key from environment variable
+# ✅ Load API Key safely
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
-    st.error("❌ API Key not found. Set GEMINI_API_KEY as an environment variable.")
-else:
-    genai.configure(api_key=API_KEY)
+    st.error("❌ API Key not found. Set GEMINI_API_KEY as an environment variable and restart.")
+    st.stop()
 
+# ✅ Configure Gemini AI
+genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# Set Page Configurations
+# ✅ Set Streamlit Page Configuration
 st.set_page_config(page_title="GenZolver - LeetCode AI Solver", layout="centered")
-
-# Title and Instructions
-st.title("🤖 Solve Problem with GenZolver")
+st.title("🤖 Solv Problem with GenZolver")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
+    """Fetch all available LeetCode problems."""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
@@ -38,10 +36,11 @@ problems_dict = fetch_problems()
 st.write(f"📌 **Loaded LeetCode Problems:** {len(problems_dict)}")
 
 def get_slug(pid): 
+    """Get the problem slug from problem ID."""
     return problems_dict.get(pid)
 
 def get_problem_statement(slug):
-    """Fetch problem statement from LeetCode."""
+    """Fetch problem statement from LeetCode GraphQL API."""
     try:
         query = {
             "query": """
@@ -53,19 +52,17 @@ def get_problem_statement(slug):
         res = requests.post("https://leetcode.com/graphql", json=query)
         if res.status_code == 200:
             html = res.json()["data"]["question"]["content"]
-            text = BeautifulSoup(html, "html.parser").get_text()
-            st.write("✅ **Problem Statement Fetched:**", text[:500])  # Debugging
-            return text
+            return BeautifulSoup(html, "html.parser").get_text()
     except Exception as e:
         st.error(f"❌ GraphQL error: {e}")
-    return "❌ Failed to fetch problem."
+    return None
 
 def solve_with_gemini(lang, text):
     """Generate a solution using Gemini AI."""
-    if text.startswith("❌"):
-        st.error("❌ Problem fetch failed. Skipping Gemini AI request.")
-        return "❌ Problem fetch failed."
-    
+    if not text:
+        st.error("❌ Problem fetch failed. Cannot generate solution.")
+        return None
+
     prompt = f"""Solve the following LeetCode problem in {lang}:
 Problem:  
 {text}
@@ -76,16 +73,14 @@ Requirements:
 - Do NOT use code fences.
 Solution:"""
 
-    st.write("🔹 **Prompt Sent to Gemini AI:**", prompt[:500])  # Debugging
     try:
         response = model.generate_content(prompt)
-        st.write("✅ **Gemini AI Response:**", response.text[:500])  # Debugging
         return response.text.strip()
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
-        return f"❌ Gemini Error: {e}"
+        return None
 
-# User Input Handling
+# ✅ User Input Handling
 user_input = st.text_input("Your command or question:")
 
 if user_input.lower().startswith("solve leetcode"):
@@ -93,13 +88,17 @@ if user_input.lower().startswith("solve leetcode"):
     if len(tokens) == 3 and tokens[2].isdigit():
         pid = tokens[2]
         slug = get_slug(pid)
+
         if slug:
             lang = st.selectbox("Choose Language", ["python", "cpp", "java", "javascript", "csharp"])
             if st.button("Generate Solution"):
                 text = get_problem_statement(slug)
-                if "❌" not in text:
+                if text:
                     solution = solve_with_gemini(lang, text)
-                    st.code(solution, language=lang)
+                    if solution:
+                        st.code(solution, language=lang)
+                    else:
+                        st.error("❌ Failed to generate solution.")
                 else:
                     st.error("❌ Failed to fetch problem statement.")
         else:
@@ -113,3 +112,8 @@ elif user_input:
         st.chat_message("assistant").write(res.text)
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
+
+# ✅ Ensure correct port for Cloud Run deployment
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    st.run(port=port)
