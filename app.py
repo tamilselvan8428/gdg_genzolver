@@ -13,15 +13,18 @@ from google.cloud import secretmanager
 # --- 🔐 Secure Gemini API Key from Google Cloud Secrets ---
 def get_api_key():
     client = secretmanager.SecretManagerServiceClient()
-    project_id = "genzolver-455514"  # ✅ Hardcoded project ID to avoid "None"
+    project_id = "genzolver-455514"
     name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
     
     try:
         response = client.access_secret_version(name=name)
-        return response.payload.data.decode("UTF-8")
+        key = response.payload.data.decode("UTF-8")
+        st.write(f"✅ API Key Loaded Successfully: {key[:5]}****")
+        return key
     except Exception as e:
         st.error(f"❌ Failed to fetch API Key: {e}")
         return None
+
 
 
 api_key = get_api_key()
@@ -37,16 +40,21 @@ st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
-    """Fetch all LeetCode problems"""
     try:
+        st.write("Fetching LeetCode problems...")  # Debug log
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
             data = res.json()
-            return {str(p["stat"]["frontend_question_id"]): p["stat"]["question__title_slug"]
-                    for p in data["stat_status_pairs"]}
+            problems = {str(p["stat"]["frontend_question_id"]): p["stat"]["question__title_slug"]
+                        for p in data["stat_status_pairs"]}
+            st.write(f"✅ Problems Loaded: {len(problems)}")  # Debug log
+            return problems
+        else:
+            st.error(f"❌ Failed to fetch problems. Status Code: {res.status_code}")
     except Exception as e:
         st.error(f"❌ Error fetching problems: {e}")
     return {}
+
 
 problems_dict = fetch_problems()
 
@@ -179,8 +187,11 @@ def handle_input(user_input):
 
 # --- 🌍 Run Streamlit on Cloud Run Required Port ---
 PORT = int(os.getenv("PORT", 8080))
-if "user_input" not in st.session_state:
-    st.session_state["user_input"] = ""
+user_input = st.text_input("Your command or question:")
+
+if user_input:
+    handle_input(user_input)
+
 
 st.text_input("Your command or question:", key="user_input", on_change=handle_input, args=(st.session_state["user_input"],))
 
