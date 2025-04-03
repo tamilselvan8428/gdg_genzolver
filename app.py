@@ -3,6 +3,12 @@ import streamlit as st
 import requests
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
+import time
 
 # ✅ Load API Key safely
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -80,6 +86,42 @@ Solution:"""
         st.error(f"❌ Gemini Error: {e}")
         return None
 
+# ✅ Automate LeetCode submission
+def submit_solution_to_leetcode(slug, solution, lang):
+    """Automate submission of the solution on LeetCode."""
+    st.write("🚀 Submitting to LeetCode...")
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless=new")  # Use the latest headless mode
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.binary_location = "/opt/google/chrome/chrome"  # Cloud Run path
+    service = Service("/usr/bin/chromedriver")  # Cloud Run ChromeDriver path
+
+    driver = webdriver.Chrome(service=service, options=options)
+
+
+    try:
+        driver.get(f"https://leetcode.com/problems/{slug}/")
+        time.sleep(5)
+
+        code_editor = driver.find_element(By.CLASS_NAME, "CodeMirror")
+        code_editor.click()
+        code_editor.send_keys(Keys.CONTROL + "a")
+        code_editor.send_keys(Keys.DELETE)
+        code_editor.send_keys(solution)
+        
+        run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
+        run_button.click()
+        time.sleep(10)
+        
+        submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+        submit_button.click()
+        time.sleep(10)
+    except Exception as e:
+        st.error(f"❌ Submission Error: {e}")
+    finally:
+        driver.quit()
+
 # ✅ User Input Handling
 user_input = st.text_input("Your command or question:")
 
@@ -97,6 +139,8 @@ if user_input.lower().startswith("solve leetcode"):
                     solution = solve_with_gemini(lang, text)
                     if solution:
                         st.code(solution, language=lang)
+                        if st.button("Submit to LeetCode"):
+                            submit_solution_to_leetcode(slug, solution, lang)
                     else:
                         st.error("❌ Failed to generate solution.")
                 else:
@@ -115,13 +159,3 @@ elif user_input:
             st.error("❌ No response generated.")
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
-
-# ✅ Ensure correct port for Cloud Run deployment
-if __name__ == "__main__":
-    st.run(
-        "app.py", 
-        "--server.port=8080", 
-        "--server.address=0.0.0.0", 
-        "--server.enableCORS=false", 
-        "--server.enableXsrfProtection=false"
-    )
