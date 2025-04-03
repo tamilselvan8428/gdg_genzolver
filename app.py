@@ -1,141 +1,144 @@
+import os
 import streamlit as st
-import requests
 import webbrowser
+import requests
+import time
+import pyperclip
 import google.generativeai as genai
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.edge.service import Service
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
-# --- Fetch API Key ---
-def get_api_key():
-    return "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"  # Replace this with actual API key fetching from Google Cloud
+API_KEY = "AIzaSyDJcR1N1QoNrmNTIPl492ZsHhos2sWW-Vs"
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-api_key = get_api_key()
-if api_key:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-pro-latest")
-else:
-    model = None
-
-# --- Streamlit UI ---
-st.title("🤖 Solve your problem with Genzolver")
-st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
+st.title("🤖 Solve your problem with GenZolver")
+st.write("Type 'Solve LeetCode [problem number]' or 'Open [app name]'.")
 
 @st.cache_data
 def fetch_problems():
-    """Fetch all LeetCode problems"""
     try:
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
             data = res.json()
-            problems = {str(p["stat"]["frontend_question_id"]): p["stat"]["question__title_slug"]
-                        for p in data["stat_status_pairs"]}
-            return problems
-        else:
-            st.error(f"❌ LeetCode API error. Status: {res.status_code}")
+            return {str(p["stat"]["frontend_question_id"]): p["stat"]["question__title_slug"] for p in data["stat_status_pairs"]}
     except Exception as e:
         st.error(f"❌ Error fetching problems: {e}")
     return {}
 
-# Load problem dictionary
 problems_dict = fetch_problems()
-st.write("📌 Loaded LeetCode Problems:", len(problems_dict))  # Debugging output
 
 def get_slug(pid):
-    """Returns problem slug for a given problem ID"""
-    slug = problems_dict.get(pid)
-    if not slug:
-        st.error(f"❌ Problem {pid} not found.")
-    return slug
+    return problems_dict.get(pid)
 
 def open_problem(pid):
-    """Opens the problem in a browser"""
     slug = get_slug(pid)
     if slug:
         url = f"https://leetcode.com/problems/{slug}/"
-        webbrowser.open(url)
+        webbrowser.open(url, new=2)
+        time.sleep(7)
         return url
+    st.error("❌ Invalid problem number.")
     return None
 
 def get_problem_statement(slug):
-    """Fetches problem statement using LeetCode GraphQL API"""
-    if not slug:
-        return "❌ Invalid problem slug."
-
     try:
-        query = {
-            "query": """
-            query getQuestionDetail($titleSlug: String!) {
-              question(titleSlug: $titleSlug) { content title }
-            }""",
-            "variables": {"titleSlug": slug}
-        }
+        query = {"query": """
+        query getQuestionDetail($titleSlug: String!) {
+          question(titleSlug: $titleSlug) { content title }
+        }""",
+        "variables": {"titleSlug": slug}}
         res = requests.post("https://leetcode.com/graphql", json=query)
         if res.status_code == 200:
             html = res.json()["data"]["question"]["content"]
             return BeautifulSoup(html, "html.parser").get_text()
     except Exception as e:
         return f"❌ GraphQL error: {e}"
-    
     return "❌ Failed to fetch problem."
 
 def solve_with_gemini(pid, lang, text):
-    """Generates a solution using Gemini AI"""
     if text.startswith("❌"):
         return "❌ Problem fetch failed."
-    
     prompt = f"""Solve the following LeetCode problem in {lang}:
-    Problem:  
-    {text}
-    Requirements:
-    - Wrap the solution inside class Solution {{ public: ... }}.
-    - Follow the LeetCode function signature.
-    - Return only the full class definition with the method inside.
-    - Do NOT use code fences.
-    Solution:"""
-    
-    if model:
-        try:
-            res = model.generate_content(prompt)
-            return res.text.strip()
-        except Exception as e:
-            return f"❌ Gemini AI Error: {e}"
-    
-    return "❌ AI Model not initialized."
+Problem:
+{text}
+Requirements:
+- Wrap the solution inside class Solution {{ public: ... }}.
+- Follow the LeetCode function signature.
+- Return only the full class definition with the method inside.
+- Do NOT use code fences.
+Solution:"""
+    try:
+        res = model.generate_content(prompt)
+        return res.text.strip()
+    except Exception as e:
+        return f"❌ Gemini Error: {e}"
 
-# --- User Input Handling ---
-def handle_input():
-    user_input = st.session_state["user_input"].strip()
+def submit_solution(pid, lang, sol):
+    try:
+        st.info("🔍 Opening LeetCode page...")
+        slug = get_slug(pid)
+        url = f"https://leetcode.com/problems/{slug}/"
+        
+        options = webdriver.EdgeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        driver = webdriver.Edge(service=Service(EdgeChromiumDriverManager().install()), options=options)
+        driver.get(url)
+        
+        time.sleep(7)
+        pyperclip.copy(sol)
+        
+        st.info("⌨ Pasting solution...")
+        editor = driver.find_element(By.CLASS_NAME, "monaco-editor")
+        editor.click()
+        time.sleep(1)
+        editor.send_keys(Keys.CONTROL, 'a')
+        editor.send_keys(Keys.CONTROL, 'v')
+        time.sleep(1)
+        
+        run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]" )
+        run_button.click()
+        
+        st.info("🚀 Running code...")
+        time.sleep(10)
+        
+        submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]" )
+        submit_button.click()
+        
+        st.success(f"✅ Problem {pid} submitted successfully!")
+        driver.quit()
+    except Exception as e:
+        st.error(f"❌ Selenium Error: {e}")
 
-    if user_input.lower().startswith("solve leetcode"):
-        tokens = user_input.split()
-        if len(tokens) == 3 and tokens[2].isdigit():
-            pid = tokens[2]
-            slug = get_slug(pid)
-            if slug:
-                lang = st.selectbox("Choose Language", ["cpp", "python", "java", "javascript"], index=1)
-                if st.button("Generate Solution"):
-                    open_problem(pid)
-                    text = get_problem_statement(slug)
-                    st.write("🔍 Fetching Problem Statement...")
-                    st.text(text)  # Debugging output
-                    solution = solve_with_gemini(pid, lang, text)
-                    st.code(solution, language=lang)
-            else:
-                st.error("❌ Invalid problem number.")
+def open_application(app_name):
+    st.error("❌ Application opening is not supported in cloud deployment.")
+
+user_input = st.text_input("Your command or question:")
+
+if user_input.lower().startswith("solve leetcode"):
+    tokens = user_input.strip().split()
+    if len(tokens) == 3 and tokens[2].isdigit():
+        pid = tokens[2]
+        slug = get_slug(pid)
+        if slug:
+            lang = st.selectbox("Language", ["cpp", "python", "java", "javascript", "csharp"], index=0)
+            if st.button("Generate & Submit Solution"):
+                text = get_problem_statement(slug)
+                solution = solve_with_gemini(pid, lang, text)
+                st.code(solution, language=lang)
+                submit_solution(pid, lang, solution)
         else:
-            st.error("❌ Use format: Solve LeetCode [problem number]")
-    
+            st.error("❌ Invalid problem number.")
     else:
-        if model:
-            try:
-                response = model.generate_content(user_input)
-                st.write(response.text.strip())
-            except Exception as e:
-                st.error(f"❌ Gemini AI Error: {e}")
-        else:
-            st.error("❌ AI Model not initialized.")
-
-# --- UI Setup ---
-if "user_input" not in st.session_state:
-    st.session_state["user_input"] = ""
-
-st.text_input("Your command or question:", key="user_input", on_change=handle_input)
+        st.error("❌ Use format: Solve LeetCode [problem number]")
+else:
+    try:
+        res = model.generate_content(user_input)
+        st.chat_message("assistant").write(res.text)
+    except Exception as e:
+        st.error(f"❌ Gemini Error: {e}")
