@@ -19,7 +19,7 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 st.set_page_config(page_title="GenZolver - LeetCode AI Solver", layout="centered")
 
 # Title and Instructions
-st.title("🤖 Solve Your Problem with GenZolver")
+st.title("🤖 Solve Problem with GenZolver")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
