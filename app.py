@@ -12,6 +12,7 @@ from google.cloud import secretmanager
 
 # --- 🔐 Secure Gemini API Key from Google Cloud Secrets ---
 def get_api_key():
+    """Fetches Gemini API key securely from Google Cloud Secret Manager"""
     client = secretmanager.SecretManagerServiceClient()
     project_id = "genzolver-455514"
     name = f"projects/{project_id}/secrets/gemini-api-key/versions/latest"
@@ -19,7 +20,6 @@ def get_api_key():
     try:
         response = client.access_secret_version(name=name)
         key = response.payload.data.decode("UTF-8")
-        st.write(f"✅ API Key Loaded Successfully: {key[:5]}****")
         return key
     except Exception as e:
         st.error(f"❌ Failed to fetch API Key: {e}")
@@ -38,14 +38,13 @@ st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
 def fetch_problems():
+    """Fetches all LeetCode problems from API"""
     try:
-        st.write("Fetching LeetCode problems...")  # Debug log
         res = requests.get("https://leetcode.com/api/problems/all/")
         if res.status_code == 200:
             data = res.json()
             problems = {str(p["stat"]["frontend_question_id"]): p["stat"]["question__title_slug"]
                         for p in data["stat_status_pairs"]}
-            st.write(f"✅ Problems Loaded: {len(problems)}")  # Debug log
             return problems
         else:
             st.error(f"❌ Failed to fetch problems. Status Code: {res.status_code}")
@@ -56,6 +55,7 @@ def fetch_problems():
 problems_dict = fetch_problems()
 
 def get_slug(pid):
+    """Returns problem slug for a given problem ID"""
     return problems_dict.get(pid)
 
 def open_problem(pid):
@@ -69,7 +69,7 @@ def open_problem(pid):
     return None
 
 def get_problem_statement(slug):
-    """Fetch problem statement using LeetCode GraphQL API"""
+    """Fetches problem statement using LeetCode GraphQL API"""
     try:
         query = {
             "query": """
@@ -110,19 +110,18 @@ def solve_with_gemini(pid, lang, text):
     return "❌ AI Model not initialized."
 
 def setup_selenium():
-    """Configures and initializes Selenium WebDriver"""
+    """Configures and initializes Selenium WebDriver for headless mode"""
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.binary_location = "/usr/bin/chromium"
     
     driver = webdriver.Chrome(options=options)
     return driver
 
 def submit_solution_selenium(pid, lang, sol):
-    """Automates solution submission on LeetCode"""
+    """Automates solution submission on LeetCode using Selenium"""
     try:
         driver = setup_selenium()
         slug = get_slug(pid)
@@ -132,17 +131,21 @@ def submit_solution_selenium(pid, lang, sol):
         url = f"https://leetcode.com/problems/{slug}/"
         driver.get(url)
         time.sleep(5)
+
+        # Locate code editor and input solution
         editor = driver.find_element("css selector", "textarea")
         editor.clear()
         editor.send_keys(sol)
-        editor.send_keys(Keys.CONTROL, "a")
-        editor.send_keys(Keys.CONTROL, "v")
-        run_button = driver.find_element("xpath", "//button[contains(text(), 'Run')]" )
+
+        # Run and Submit solution
+        run_button = driver.find_element("xpath", "//button[contains(text(), 'Run')]")
         run_button.click()
         time.sleep(8)
-        submit_button = driver.find_element("xpath", "//button[contains(text(), 'Submit')]" )
+        
+        submit_button = driver.find_element("xpath", "//button[contains(text(), 'Submit')]")
         submit_button.click()
         time.sleep(10)
+
         st.success(f"✅ Problem {pid} submitted successfully!")
         driver.quit()
     except Exception as e:
@@ -150,9 +153,10 @@ def submit_solution_selenium(pid, lang, sol):
 
 def handle_input():
     """Handles user input for solving problems"""
-    user_input = st.session_state.user_input
+    user_input = st.session_state["user_input"].strip()
+    
     if user_input.lower().startswith("solve leetcode"):
-        tokens = user_input.strip().split()
+        tokens = user_input.split()
         if len(tokens) == 3 and tokens[2].isdigit():
             pid = tokens[2]
             slug = get_slug(pid)
