@@ -187,10 +187,18 @@ def handle_input(user_input):
 
 # --- 🌍 Run Streamlit on Cloud Run Required Port ---
 PORT = int(os.getenv("PORT", 8080))
-user_input = st.text_input("Your command or question:")
 
-if user_input:
-    handle_input(user_input)
+# ✅ Ensure session state is initialized
+if "user_input" not in st.session_state:
+    st.session_state["user_input"] = ""
+
+# 📝 Handle user input
+st.text_input(
+    "Your command or question:",
+    key="user_input",
+    on_change=handle_input,
+    args=(st.session_state.get("user_input", ""),)  # ✅ Use .get() to avoid KeyError
+)
 
 
 st.text_input("Your command or question:", key="user_input", on_change=handle_input, args=(st.session_state["user_input"],))
