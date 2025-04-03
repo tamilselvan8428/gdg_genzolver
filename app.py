@@ -16,7 +16,7 @@ model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
 # ✅ Set Streamlit Page Configuration
 st.set_page_config(page_title="GenZolver - LeetCode AI Solver", layout="centered")
-st.title("🤖 Solv Problem with GenZolver")
+st.title("🤖 Solve Problems with GenZolver")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
 
 @st.cache_data
@@ -112,8 +112,3 @@ elif user_input:
         st.chat_message("assistant").write(res.text)
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
-
-# ✅ Ensure correct port for Cloud Run deployment
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    st.run(port=port)
