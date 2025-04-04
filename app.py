@@ -7,10 +7,10 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 from selenium.webdriver.chrome.options import Options
-# ✅ Load API Key safely
+
+# ✅ Load API Key
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     st.error("❌ API Key not found. Set GEMINI_API_KEY as an environment variable and restart.")
@@ -20,7 +20,7 @@ if not API_KEY:
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# ✅ Set Streamlit Page Configuration
+# ✅ Streamlit Page Configuration
 st.set_page_config(page_title="GenZolver - LeetCode AI Solver", layout="centered")
 st.title("🤖 Solve Problems with GenZolver")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
@@ -86,42 +86,52 @@ Solution:"""
         st.error(f"❌ Gemini Error: {e}")
         return None
 
-# ✅ Automate LeetCode submission
+# ✅ Automate LeetCode submission (KLogin Mode)
 def submit_solution_to_leetcode(slug, solution, lang):
-    st.write("🚀 Submitting to LeetCode...")
-    
+    st.write("🚀 Open Chrome, log in to LeetCode, then press 'Submit'.")
+
     chrome_options = Options()
-    chrome_options.add_argument('--headless=new')
-    chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    
+    normal_driver = webdriver.Chrome(service=Service("/usr/bin/chromedriver"), options=chrome_options)
+    normal_driver.get("https://leetcode.com/accounts/login/")
+    st.write("➡️ Please log in to LeetCode manually.")
+    st.write("⚠️ **After logging in, press the 'Submit' button here.**")
 
-    # ✅ Important for Cloud Run: set exact binary paths
-    chrome_options.binary_location = '/usr/bin/chromium'
-    service = Service('/usr/bin/chromedriver')
+    if st.button("Submit Solution"):
+        normal_driver.quit()
+        
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        automation_driver = webdriver.Chrome(service=Service("/usr/bin/chromedriver"), options=chrome_options)
 
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+        try:
+            automation_driver.get(f"https://leetcode.com/problems/{slug}/")
+            time.sleep(5)
 
-    try:
-        driver.get(f"https://leetcode.com/problems/{slug}/")
-        time.sleep(5)
+            automation_driver.execute_script("document.querySelector('.CodeMirror').focus();")
+            time.sleep(1)
 
-        code_editor = driver.find_element(By.CLASS_NAME, "CodeMirror")
-        code_editor.click()
-        code_editor.send_keys(Keys.CONTROL + "a")
-        code_editor.send_keys(Keys.DELETE)
-        code_editor.send_keys(solution)
+            automation_driver.execute_script("document.querySelector('.CodeMirror').CodeMirror.setValue('');")
+            time.sleep(1)
 
-        run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
-        run_button.click()
-        time.sleep(10)
+            solution_script = f"document.querySelector('.CodeMirror').CodeMirror.setValue(`{solution}`);"
+            automation_driver.execute_script(solution_script)
+            time.sleep(2)
 
-        submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-        submit_button.click()
-        time.sleep(10)
-    except Exception as e:
-        st.error(f"❌ Submission Error: {e}")
-    finally:
-        driver.quit()
+            run_button = automation_driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
+            run_button.click()
+            time.sleep(10)
+
+            submit_button = automation_driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+            submit_button.click()
+            time.sleep(10)
+
+            st.success("✅ Solution submitted successfully!")
+        except Exception as e:
+            st.error(f"❌ Submission Error: {e}")
+        finally:
+            automation_driver.quit()
 
 # ✅ User Input Handling
 user_input = st.text_input("Your command or question:")
