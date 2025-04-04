@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 import time
-
+from selenium.webdriver.chrome.options import Options
 # ✅ Load API Key safely
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
@@ -90,13 +90,15 @@ Solution:"""
 def submit_solution_to_leetcode(slug, solution, lang):
     st.write("🚀 Submitting to LeetCode...")
     
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.binary_location = "/usr/bin/chromium"
+    options = Options()
+    options.add_argument('--headless=new')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
 
-    service = Service("/usr/bin/chromedriver")
+    # ✅ Add these for Cloud Run
+    options.binary_location = '/usr/bin/chromium'
+    service = Service('/usr/bin/chromedriver')
+
     driver = webdriver.Chrome(service=service, options=options)
 
     try:

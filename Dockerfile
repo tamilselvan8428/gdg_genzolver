@@ -3,9 +3,9 @@ FROM python:3.10-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    wget unzip curl \
-    chromium-driver chromium \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    chromium chromium-driver
+
 
 # Set environment variables for Chromium
 ENV CHROME_BIN=/usr/bin/chromium
