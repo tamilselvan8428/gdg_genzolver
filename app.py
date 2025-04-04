@@ -90,16 +90,16 @@ Solution:"""
 def submit_solution_to_leetcode(slug, solution, lang):
     st.write("🚀 Submitting to LeetCode...")
     
-    options = Options()
-    options.add_argument('--headless=new')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
+    chrome_options = Options()
+    chrome_options.add_argument('--headless=new')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
 
-    # ✅ Add these for Cloud Run
-    options.binary_location = '/usr/bin/chromium'
+    # ✅ Important for Cloud Run: set exact binary paths
+    chrome_options.binary_location = '/usr/bin/chromium'
     service = Service('/usr/bin/chromedriver')
 
-    driver = webdriver.Chrome(service=service, options=options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
         driver.get(f"https://leetcode.com/problems/{slug}/")

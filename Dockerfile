@@ -1,28 +1,37 @@
-# Use slim Python image to reduce size
+# Use a lightweight Python base image
 FROM python:3.10-slim
+
+# Prevents Python from writing pyc files to disc
+ENV PYTHONDONTWRITEBYTECODE 1
+
+# Prevents Python from buffering stdout and stderr
+ENV PYTHONUNBUFFERED 1
+
+# Set environment variable for Streamlit
+ENV PORT 8080
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-RUN apt-get update && apt-get install -y \
-    chromium chromium-driver
-
-
-# Set environment variables for Chromium
-ENV CHROME_BIN=/usr/bin/chromium
-ENV PATH=$CHROME_BIN:$PATH
-ENV PYTHONUNBUFFERED=1
+    build-essential \
+    chromium \
+    chromium-driver \
+    curl \
+    unzip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy everything
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# Copy source code
 COPY . .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Expose the port
+EXPOSE 8080
 
-# Streamlit requires this to work correctly in Cloud Run
-ENV PORT 8080
-
-# Start Streamlit on port 8080
+# Run Streamlit
 CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
