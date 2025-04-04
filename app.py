@@ -88,17 +88,16 @@ Solution:"""
 
 # ✅ Automate LeetCode submission
 def submit_solution_to_leetcode(slug, solution, lang):
-    """Automate submission of the solution on LeetCode."""
     st.write("🚀 Submitting to LeetCode...")
+    
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")  # Use the latest headless mode
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    options.binary_location = "/opt/google/chrome/chrome"  # Cloud Run path
-    service = Service("/usr/bin/chromedriver")  # Cloud Run ChromeDriver path
+    options.binary_location = "/usr/bin/chromium"
 
+    service = Service("/usr/bin/chromedriver")
     driver = webdriver.Chrome(service=service, options=options)
-
 
     try:
         driver.get(f"https://leetcode.com/problems/{slug}/")
@@ -109,11 +108,11 @@ def submit_solution_to_leetcode(slug, solution, lang):
         code_editor.send_keys(Keys.CONTROL + "a")
         code_editor.send_keys(Keys.DELETE)
         code_editor.send_keys(solution)
-        
+
         run_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
         run_button.click()
         time.sleep(10)
-        
+
         submit_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
         submit_button.click()
         time.sleep(10)
@@ -159,6 +158,3 @@ elif user_input:
             st.error("❌ No response generated.")
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
-if __name__ == "__main__":
-    import os
-    os.system("streamlit run app.py --server.port=8080 --server.address=0.0.0.0")

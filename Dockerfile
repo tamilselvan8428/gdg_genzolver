@@ -1,26 +1,28 @@
-# Use official Python image
-FROM python:3.10
+# Use slim Python image to reduce size
+FROM python:3.10-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     wget unzip curl \
-    chromium chromium-driver \
-    && rm -rf /var/lib/apt/lists/*
+    chromium-driver chromium \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for Selenium
-ENV PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/lib/chromium"
+# Set environment variables for Chromium
+ENV CHROME_BIN=/usr/bin/chromium
+ENV PATH=$CHROME_BIN:$PATH
+ENV PYTHONUNBUFFERED=1
 
 # Set working directory
 WORKDIR /app
 
-# Copy app files
+# Copy everything
 COPY . .
 
-# Install dependencies
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port
-EXPOSE 8080
+# Streamlit requires this to work correctly in Cloud Run
+ENV PORT 8080
 
-# Run the Streamlit app
+# Start Streamlit on port 8080
 CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
