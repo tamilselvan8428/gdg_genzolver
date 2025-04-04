@@ -6,11 +6,10 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
 from selenium.webdriver.chrome.options import Options
+import time
 
-# ✅ Load API Key
+# ✅ Load API Key safely
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     st.error("❌ API Key not found. Set GEMINI_API_KEY as an environment variable and restart.")
@@ -20,7 +19,7 @@ if not API_KEY:
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-pro-latest")
 
-# ✅ Streamlit Page Configuration
+# ✅ Set Streamlit Page Configuration
 st.set_page_config(page_title="GenZolver - LeetCode AI Solver", layout="centered")
 st.title("🤖 Solve Problems with GenZolver")
 st.write("Type 'Solve LeetCode [problem number]' or ask me anything!")
@@ -86,21 +85,23 @@ Solution:"""
         st.error(f"❌ Gemini Error: {e}")
         return None
 
-# ✅ Automate LeetCode submission (KLogin Mode)
+# ✅ Automate LeetCode submission
 def submit_solution_to_leetcode(slug, solution, lang):
     st.write("🚀 Open Chrome, log in to LeetCode, then press 'Submit'.")
 
     chrome_options = Options()
     chrome_options.add_argument('--disable-dev-shm-usage')
-    
+
+    # 🟢 STEP 1: Open Chrome for login
     normal_driver = webdriver.Chrome(service=Service("/usr/bin/chromedriver"), options=chrome_options)
     normal_driver.get("https://leetcode.com/accounts/login/")
     st.write("➡️ Please log in to LeetCode manually.")
     st.write("⚠️ **After logging in, press the 'Submit' button here.**")
 
     if st.button("Submit Solution"):
-        normal_driver.quit()
-        
+        normal_driver.quit()  # Close browser after login
+
+        # 🟢 STEP 2: Open Chrome in Automation Mode (Headless)
         chrome_options.add_argument('--headless')
         chrome_options.add_argument('--no-sandbox')
         automation_driver = webdriver.Chrome(service=Service("/usr/bin/chromedriver"), options=chrome_options)
@@ -109,20 +110,25 @@ def submit_solution_to_leetcode(slug, solution, lang):
             automation_driver.get(f"https://leetcode.com/problems/{slug}/")
             time.sleep(5)
 
+            # ✅ Click on the Code Editor (Use JavaScript injection)
             automation_driver.execute_script("document.querySelector('.CodeMirror').focus();")
             time.sleep(1)
 
+            # ✅ Clear Existing Code
             automation_driver.execute_script("document.querySelector('.CodeMirror').CodeMirror.setValue('');")
             time.sleep(1)
 
+            # ✅ Paste the Solution
             solution_script = f"document.querySelector('.CodeMirror').CodeMirror.setValue(`{solution}`);"
             automation_driver.execute_script(solution_script)
             time.sleep(2)
 
+            # ✅ Click 'Run' button
             run_button = automation_driver.find_element(By.XPATH, "//button[contains(text(), 'Run')]")
             run_button.click()
             time.sleep(10)
 
+            # ✅ Click 'Submit' button
             submit_button = automation_driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
             submit_button.click()
             time.sleep(10)
@@ -170,3 +176,9 @@ elif user_input:
             st.error("❌ No response generated.")
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
+
+# ✅ Ensure Streamlit listens on Cloud Run PORT
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8501))
+    st.write(f"🚀 Running on port {port}")
+    st.run(port=port)
