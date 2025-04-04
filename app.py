@@ -159,3 +159,6 @@ elif user_input:
             st.error("❌ No response generated.")
     except Exception as e:
         st.error(f"❌ Gemini Error: {e}")
+if __name__ == "__main__":
+    import os
+    os.system("streamlit run app.py --server.port=8080 --server.address=0.0.0.0")
